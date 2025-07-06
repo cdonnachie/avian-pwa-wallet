@@ -5,6 +5,8 @@ import { Lock, Fingerprint, Eye, EyeOff, Shield, Clock, Wallet } from 'lucide-re
 import { securityService } from '@/services/SecurityService'
 import { StorageService } from '@/services/StorageService'
 import { useToast } from '@/components/Toast'
+import GradientBackground from '@/components/GradientBackground'
+import ThemeSwitcher from '@/components/ThemeSwitcher'
 
 interface SecurityLockScreenProps {
     onUnlock: () => void
@@ -190,8 +192,13 @@ export default function SecurityLockScreen({ onUnlock, lockReason }: SecurityLoc
     }
 
     return (
-        <div className="fixed inset-0 bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-8 w-full max-w-md mx-4">
+        <GradientBackground variant="auto" className="fixed inset-0 flex items-center justify-center z-50">
+            <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-8 w-full max-w-md mx-4">
+                {/* Theme Toggle Button */}
+                <div className="absolute top-4 right-4">
+                    <ThemeSwitcher />
+                </div>
+
                 {/* Header */}
                 <div className="text-center mb-8">
                     <div className="flex justify-center mb-4">
@@ -348,6 +355,6 @@ export default function SecurityLockScreen({ onUnlock, lockReason }: SecurityLoc
                     </div>
                 </div>
             </div>
-        </div>
+        </GradientBackground>
     )
 }

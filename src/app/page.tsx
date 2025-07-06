@@ -1,7 +1,8 @@
 'use client'
 
-import { Wallet, Send, QrCode, Settings, RefreshCw, History, Loader } from 'lucide-react'
+import { Wallet, Send, QrCode, Settings, RefreshCw, History, Loader, Lock, Unlock } from 'lucide-react'
 import { useWallet } from '@/contexts/WalletContext'
+import { useSecurity } from '@/contexts/SecurityContext'
 import { useState } from 'react'
 import SendForm from '@/components/SendForm'
 import ReceiveContent from '@/components/ReceiveContent'
@@ -9,9 +10,11 @@ import WalletSettings from '@/components/WalletSettings'
 import { TransactionHistory } from '@/components/TransactionHistory'
 import ConnectionStatus from '@/components/ConnectionStatus'
 import ThemeSwitcher from '@/components/ThemeSwitcher'
+import GradientBackground from '@/components/GradientBackground'
 
 export default function Home() {
     const { wallet, balance, address, isLoading, processingProgress } = useWallet()
+    const { lockWallet, isLocked } = useSecurity()
     const [activeTab, setActiveTab] = useState<'send' | 'receive' | 'history' | 'settings'>('send')
     const [showTransactionHistory, setShowTransactionHistory] = useState(false)
 
@@ -26,13 +29,30 @@ export default function Home() {
     }
 
     return (
-        <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <GradientBackground variant="auto">
             <div className="container mx-auto px-4 py-8">
                 <div className="max-w-md mx-auto">
                     {/* Header */}
                     <div className="text-center mb-8 relative">
-                        {/* Theme Switcher - Top Right */}
-                        <div className="absolute top-0 right-0">
+                        {/* Controls - Top Right */}
+                        <div className="absolute top-0 right-0 flex items-center space-x-2">
+                            {/* Lock Button */}
+                            {address && (
+                                <button
+                                    onClick={() => lockWallet()}
+                                    className="flex items-center justify-center p-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-avian-orange focus:border-transparent"
+                                    aria-label="Lock wallet"
+                                    title="Lock wallet"
+                                >
+                                    {isLocked ? (
+                                        <Lock className="w-4 h-4" />
+                                    ) : (
+                                        <Unlock className="w-4 h-4" />
+                                    )}
+                                </button>
+                            )}
+
+                            {/* Theme Switcher */}
                             <ThemeSwitcher />
                         </div>
 
@@ -40,7 +60,7 @@ export default function Home() {
                             <Wallet className="w-12 h-12 text-avian-600" />
                         </div>
                         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                            Avian Wallet
+                            Avian FlightDeck
                         </h1>
                         <p className="text-gray-600 dark:text-gray-400">
                             Manage your AVN cryptocurrency securely and easily.
@@ -152,6 +172,6 @@ export default function Home() {
                     />
                 </div>
             </div>
-        </main>
+        </GradientBackground>
     )
 }

@@ -17,9 +17,9 @@ interface WalletContextType {
     isConnected: boolean
     serverInfo: { url: string; servers: any[] }
     processingProgress: { isProcessing: boolean; processed: number; total: number; currentTx?: string }
-    generateWallet: (password?: string, useMnemonic?: boolean, passphrase?: string) => Promise<void>
+    generateWallet: (password: string, useMnemonic?: boolean, passphrase?: string) => Promise<void>
     restoreWallet: (privateKey: string, password?: string) => Promise<void>
-    restoreWalletFromMnemonic: (mnemonic: string, password?: string, passphrase?: string) => Promise<void>
+    restoreWalletFromMnemonic: (mnemonic: string, password: string, passphrase?: string) => Promise<void>
     sendTransaction: (
         toAddress: string,
         amount: number,
@@ -148,14 +148,19 @@ export function WalletProvider({ children }: WalletProviderProps) {
         initializeWallet()
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-    const generateWallet = async (password?: string, useMnemonic: boolean = true, passphrase?: string) => {
+    const generateWallet = async (password: string, useMnemonic: boolean = true, passphrase?: string) => {
         if (!wallet) throw new Error('Wallet service not initialized')
+
+        // Validate required password
+        if (!password || password.length < 8) {
+            throw new Error('Password is required and must be at least 8 characters long')
+        }
 
         try {
             setIsLoading(true)
             const newWallet = await wallet.generateWallet(password, useMnemonic, passphrase)
             setAddress(newWallet.address)
-            setIsEncrypted(!!password)
+            setIsEncrypted(true) // Always encrypted now
             setBalance(0)
 
             // Save to storage
@@ -233,19 +238,24 @@ export function WalletProvider({ children }: WalletProviderProps) {
         }
     }
 
-    const restoreWalletFromMnemonic = async (mnemonic: string, password?: string, passphrase?: string) => {
+    const restoreWalletFromMnemonic = async (mnemonic: string, password: string, passphrase?: string) => {
         if (!wallet) throw new Error('Wallet service not initialized')
+
+        // Validate required password
+        if (!password || password.length < 8) {
+            throw new Error('Password is required and must be at least 8 characters long')
+        }
 
         try {
             setIsLoading(true)
             const restoredWallet = await wallet.generateWalletFromMnemonic(mnemonic, password, passphrase)
             setAddress(restoredWallet.address)
-            setIsEncrypted(!!password)
+            setIsEncrypted(true) // Always encrypted now
 
             // Save to storage
             await StorageService.setAddress(restoredWallet.address)
             await StorageService.setPrivateKey(restoredWallet.privateKey)
-            await StorageService.setIsEncrypted(!!password)
+            await StorageService.setIsEncrypted(true) // Always encrypted now
 
             // Initialize wallet with subscription for real-time updates
             await wallet.initializeWallet(

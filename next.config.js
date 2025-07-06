@@ -34,17 +34,29 @@ const nextConfig = {
   // Optimize for Vercel
   poweredByHeader: false,
   compress: true,
-  // External packages for server components (moved from experimental)
-  serverExternalPackages: ["bitcoinjs-lib", "tiny-secp256k1"],
-  // Turbopack configuration
-  turbopack: {
-    // Configure module resolution for browser compatibility
-    resolveAlias: {
-      // Use browser-compatible versions of Node.js modules
-      buffer: "buffer",
-      process: "process/browser",
-    },
-  },
+  // Transpile ESM crypto libraries
+  transpilePackages: [
+    "bitcoinjs-lib",
+    "ecpair",
+    "bip32",
+    "bip39",
+    "tiny-secp256k1",
+    "bs58check",
+    "bs58",
+    "base-x",
+    "wif",
+    "coinselect",
+    "bech32",
+    "typeforce",
+    "varuint-bitcoin",
+    "pushdata-bitcoin",
+    "bitcoin-ops",
+    "create-hash",
+    "create-hmac",
+    "randombytes",
+    "safe-buffer",
+    "secp256k1",
+  ],
   // Webpack configuration for WebAssembly support
   webpack: (config, { isServer }) => {
     // Enable WebAssembly experiments
@@ -54,39 +66,19 @@ const nextConfig = {
       layers: true,
     };
 
-    // Handle .wasm files
-    config.module.rules.push({
-      test: /\.wasm$/,
-      type: "webassembly/async",
-    });
-
-    // Fallback for Node.js modules in the browser
+    // Use node-polyfill-webpack-plugin for automatic Node.js core polyfills
     if (!isServer) {
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        fs: false,
-        path: false,
-        crypto: false,
-        stream: false,
-        buffer: require.resolve("buffer"),
-        process: require.resolve("process/browser"),
+      const NodePolyfillPlugin = require("node-polyfill-webpack-plugin");
+      config.resolve.alias = {
+        ...(config.resolve.alias || {}),
+        "tiny-secp256k1": require.resolve("@bitcoin-js/tiny-secp256k1-asmjs"),
       };
-
-      // Add buffer polyfill using webpack.ProvidePlugin
-      const webpack = require("webpack");
       config.plugins.push(
-        new webpack.ProvidePlugin({
-          Buffer: ["buffer", "Buffer"],
-          process: "process/browser",
+        new NodePolyfillPlugin({
+          excludeAliases: ["console"], // Exclude console as it's natively available
         })
       );
     }
-
-    // Handle tiny-secp256k1 specifically for better compatibility
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      "tiny-secp256k1": require.resolve("tiny-secp256k1"),
-    };
 
     return config;
   },

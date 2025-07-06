@@ -196,17 +196,6 @@ export default function SendForm() {
         })
     }
 
-    const handleLockWallet = async () => {
-        try {
-            // Import securityService dynamically to avoid circular dependencies
-            const { securityService } = await import('@/services/SecurityService')
-            await securityService.lockWallet('manual')
-            // The wallet context should handle the lock state change and show the lock screen
-        } catch (error) {
-            console.error('Failed to lock wallet:', error)
-        }
-    }
-
     return (
         <div className="p-6">
             <div className="mb-6">
@@ -218,14 +207,6 @@ export default function SendForm() {
                             Send AVN
                         </h3>
                     </div>
-                    <button
-                        onClick={handleLockWallet}
-                        className="flex items-center px-3 py-2 text-sm bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg border border-red-200 dark:border-red-700 transition-colors"
-                        title="Lock Wallet"
-                    >
-                        <Lock className="w-4 h-4 mr-1.5" />
-                        Lock
-                    </button>
                 </div>
 
                 {/* Action Buttons */}
@@ -241,11 +222,11 @@ export default function SendForm() {
                     <button
                         onClick={() => setShowUTXOSettings(true)}
                         className={`relative flex items-center px-3 py-2 text-sm rounded-lg border transition-colors ${utxoOptions.strategy !== CoinSelectionStrategy.BEST_FIT ||
-                                utxoOptions.feeRate !== 10000 ||
-                                utxoOptions.maxInputs !== 20 ||
-                                utxoOptions.minConfirmations !== 0
-                                ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-700'
-                                : 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 border-gray-200 dark:border-gray-600'
+                            utxoOptions.feeRate !== 10000 ||
+                            utxoOptions.maxInputs !== 20 ||
+                            utxoOptions.minConfirmations !== 0
+                            ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-700'
+                            : 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 border-gray-200 dark:border-gray-600'
                             }`}
                         title="Advanced Transaction Settings"
                     >
@@ -261,8 +242,8 @@ export default function SendForm() {
                     <button
                         onClick={() => setShowAddressBook(!showAddressBook)}
                         className={`flex items-center px-3 py-2 text-sm rounded-lg border transition-colors ${showAddressBook
-                                ? 'bg-avian-100 dark:bg-avian-900/20 text-avian-700 dark:text-avian-300 border-avian-200 dark:border-avian-700'
-                                : 'bg-avian-50 dark:bg-avian-900/10 text-avian-600 dark:text-avian-400 hover:bg-avian-100 dark:hover:bg-avian-900/20 border-avian-200 dark:border-avian-700'
+                            ? 'bg-avian-100 dark:bg-avian-900/20 text-avian-700 dark:text-avian-300 border-avian-200 dark:border-avian-700'
+                            : 'bg-avian-50 dark:bg-avian-900/10 text-avian-600 dark:text-avian-400 hover:bg-avian-100 dark:hover:bg-avian-900/20 border-avian-200 dark:border-avian-700'
                             }`}
                         title="Address Book"
                     >

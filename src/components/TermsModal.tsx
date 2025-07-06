@@ -140,7 +140,7 @@ export default function TermsModal({ isOpen, onAccept, onDecline }: TermsModalPr
                                 <div>
                                     <h4 className="text-sm sm:text-base font-semibold text-red-800 dark:text-red-200">Terms Required</h4>
                                     <p className="text-xs sm:text-sm text-red-700 dark:text-red-300 mt-1">
-                                        You must accept the terms to use Avian Wallet. Please close this window if you do not wish to continue.
+                                        You must accept the terms to use Avian FlightDec. Please close this window if you do not wish to continue.
                                     </p>
                                 </div>
                             </div>

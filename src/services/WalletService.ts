@@ -78,7 +78,12 @@ export class WalletService {
         this.electrum = electrumService || new ElectrumService()
     }
 
-    async generateWallet(password?: string, useMnemonic: boolean = true, passphrase?: string): Promise<LegacyWalletData> {
+    async generateWallet(password: string, useMnemonic: boolean = true, passphrase?: string): Promise<LegacyWalletData> {
+        // Validate required password
+        if (!password || password.length < 8) {
+            throw new Error('Password is required and must be at least 8 characters long')
+        }
+
         try {
 
             let keyPair: any
@@ -124,13 +129,11 @@ export class WalletService {
                 throw new Error('Failed to generate address')
             }
 
-            // Encrypt private key if password provided
-            const finalPrivateKey = password
-                ? CryptoJS.AES.encrypt(privateKeyWIF, password).toString()
-                : privateKeyWIF
+            // Encrypt private key with password (now mandatory)
+            const finalPrivateKey = CryptoJS.AES.encrypt(privateKeyWIF, password).toString()
 
-            // Encrypt mnemonic if password provided and mnemonic exists
-            const finalMnemonic = (mnemonic && password)
+            // Encrypt mnemonic with password (now mandatory if mnemonic exists)
+            const finalMnemonic = mnemonic
                 ? CryptoJS.AES.encrypt(mnemonic, password).toString()
                 : mnemonic
 
@@ -763,7 +766,12 @@ export class WalletService {
         }
     }
 
-    async generateWalletFromMnemonic(mnemonic: string, password?: string, passphrase?: string): Promise<LegacyWalletData> {
+    async generateWalletFromMnemonic(mnemonic: string, password: string, passphrase?: string): Promise<LegacyWalletData> {
+        // Validate required password
+        if (!password || password.length < 8) {
+            throw new Error('Password is required and must be at least 8 characters long')
+        }
+
         try {
             // Validate mnemonic
             if (!bip39.validateMnemonic(mnemonic)) {
@@ -799,15 +807,11 @@ export class WalletService {
                 throw new Error('Failed to generate address from mnemonic')
             }
 
-            // Encrypt private key if password provided
-            const finalPrivateKey = password
-                ? CryptoJS.AES.encrypt(privateKeyWIF, password).toString()
-                : privateKeyWIF
+            // Encrypt private key with password (now mandatory)
+            const finalPrivateKey = CryptoJS.AES.encrypt(privateKeyWIF, password).toString()
 
-            // Encrypt mnemonic if password provided
-            const finalMnemonic = password
-                ? CryptoJS.AES.encrypt(mnemonic, password).toString()
-                : mnemonic
+            // Encrypt mnemonic with password (now mandatory)
+            const finalMnemonic = CryptoJS.AES.encrypt(mnemonic, password).toString()
 
             // Store mnemonic
             await StorageService.setMnemonic(finalMnemonic)
@@ -966,11 +970,15 @@ export class WalletService {
     // Multi-wallet support methods
     async createNewWallet(params: {
         name: string
-        password?: string
+        password: string // Now required for security
         useMnemonic?: boolean
         makeActive?: boolean
     }): Promise<WalletData> {
         try {
+            // Validate required password
+            if (!params.password || params.password.length < 8) {
+                throw new Error('Password is required and must be at least 8 characters long')
+            }
             let keyPair: any
             let mnemonic: string | undefined
 
@@ -1011,13 +1019,11 @@ export class WalletService {
                 throw new Error('Failed to generate address')
             }
 
-            // Encrypt private key if password provided
-            const finalPrivateKey = params.password
-                ? CryptoJS.AES.encrypt(privateKeyWIF, params.password).toString()
-                : privateKeyWIF
+            // Encrypt private key with password (now mandatory)
+            const finalPrivateKey = CryptoJS.AES.encrypt(privateKeyWIF, params.password).toString()
 
-            // Encrypt mnemonic if password provided and mnemonic exists
-            const finalMnemonic = (mnemonic && params.password)
+            // Encrypt mnemonic with password (now mandatory if mnemonic exists)
+            const finalMnemonic = mnemonic
                 ? CryptoJS.AES.encrypt(mnemonic, params.password).toString()
                 : mnemonic
 
@@ -1027,7 +1033,7 @@ export class WalletService {
                 address,
                 privateKey: finalPrivateKey,
                 mnemonic: finalMnemonic,
-                isEncrypted: !!params.password,
+                isEncrypted: true, // Always encrypted now
                 makeActive: params.makeActive
             })
 
@@ -1042,10 +1048,15 @@ export class WalletService {
     async importWalletFromMnemonic(params: {
         name: string
         mnemonic: string
-        password?: string
+        password: string // Now required for security
         makeActive?: boolean
     }): Promise<WalletData> {
         try {
+            // Validate required password
+            if (!params.password || params.password.length < 8) {
+                throw new Error('Password is required and must be at least 8 characters long')
+            }
+
             // Validate mnemonic
             if (!bip39.validateMnemonic(params.mnemonic)) {
                 throw new Error('Invalid mnemonic phrase')
@@ -1084,15 +1095,11 @@ export class WalletService {
                 throw new Error('Wallet with this address already exists')
             }
 
-            // Encrypt private key if password provided
-            const finalPrivateKey = params.password
-                ? CryptoJS.AES.encrypt(privateKeyWIF, params.password).toString()
-                : privateKeyWIF
+            // Encrypt private key with password (now mandatory)
+            const finalPrivateKey = CryptoJS.AES.encrypt(privateKeyWIF, params.password).toString()
 
-            // Encrypt mnemonic if password provided
-            const finalMnemonic = params.password
-                ? CryptoJS.AES.encrypt(params.mnemonic, params.password).toString()
-                : params.mnemonic
+            // Encrypt mnemonic with password (now mandatory)
+            const finalMnemonic = CryptoJS.AES.encrypt(params.mnemonic, params.password).toString()
 
             // Create wallet in storage
             const walletData = await StorageService.createWallet({
@@ -1100,7 +1107,7 @@ export class WalletService {
                 address,
                 privateKey: finalPrivateKey,
                 mnemonic: finalMnemonic,
-                isEncrypted: !!params.password,
+                isEncrypted: true, // Always encrypted now
                 makeActive: params.makeActive
             })
 
@@ -1115,10 +1122,14 @@ export class WalletService {
     async importWalletFromPrivateKey(params: {
         name: string
         privateKey: string
-        password?: string
+        password: string // Now required for security
         makeActive?: boolean
     }): Promise<WalletData> {
         try {
+            // Validate required password
+            if (!params.password || params.password.length < 8) {
+                throw new Error('Password is required and must be at least 8 characters long')
+            }
 
             let keyPair: any
             let decryptedKey = params.privateKey
@@ -1159,17 +1170,15 @@ export class WalletService {
                 throw new Error('Wallet with this address already exists')
             }
 
-            // Encrypt private key if password provided
-            const finalPrivateKey = params.password
-                ? CryptoJS.AES.encrypt(decryptedKey, params.password).toString()
-                : decryptedKey
+            // Encrypt private key with password (now mandatory)
+            const finalPrivateKey = CryptoJS.AES.encrypt(decryptedKey, params.password).toString()
 
             // Create wallet in storage
             const walletData = await StorageService.createWallet({
                 name: params.name,
                 address,
                 privateKey: finalPrivateKey,
-                isEncrypted: !!params.password,
+                isEncrypted: true, // Always encrypted now
                 makeActive: params.makeActive
             })
 

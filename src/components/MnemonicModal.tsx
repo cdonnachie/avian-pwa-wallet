@@ -121,7 +121,13 @@ export default function MnemonicModal({ isOpen, onClose, mode }: MnemonicModalPr
             return
         }
 
-        if (newPassword && newPassword !== confirmPassword) {
+        // Password is now mandatory
+        if (!newPassword || newPassword.length < 8) {
+            setError('Password is required and must be at least 8 characters long')
+            return
+        }
+
+        if (newPassword !== confirmPassword) {
             setError('Passwords do not match')
             return
         }
@@ -129,7 +135,7 @@ export default function MnemonicModal({ isOpen, onClose, mode }: MnemonicModalPr
         try {
             setIsLoading(true)
             setError('')
-            await restoreWalletFromMnemonic(importMnemonic.trim(), newPassword || undefined)
+            await restoreWalletFromMnemonic(importMnemonic.trim(), newPassword)
             showToast({
                 type: 'success',
                 title: 'Wallet restored!',
@@ -149,7 +155,13 @@ export default function MnemonicModal({ isOpen, onClose, mode }: MnemonicModalPr
     }
 
     const handleGenerateNewWallet = async () => {
-        if (newPassword && newPassword !== confirmPassword) {
+        // Password is now mandatory
+        if (!newPassword || newPassword.length < 8) {
+            setError('Password is required and must be at least 8 characters long')
+            return
+        }
+
+        if (newPassword !== confirmPassword) {
             setError('Passwords do not match')
             return
         }
@@ -157,7 +169,7 @@ export default function MnemonicModal({ isOpen, onClose, mode }: MnemonicModalPr
         try {
             setIsLoading(true)
             setError('')
-            await generateWallet(newPassword || undefined, true) // Generate with mnemonic
+            await generateWallet(newPassword, true) // Generate with mnemonic (password now required)
             showToast({
                 type: 'success',
                 title: 'New wallet created!',
@@ -352,31 +364,31 @@ export default function MnemonicModal({ isOpen, onClose, mode }: MnemonicModalPr
 
                         <div className="space-y-2">
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                New Password (Optional)
+                                Password (Required for Security)
                             </label>
                             <input
                                 type="password"
                                 value={newPassword}
                                 onChange={(e) => setNewPassword(e.target.value)}
                                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-avian-orange focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                placeholder="Enter new password to encrypt wallet"
+                                placeholder="Enter password to encrypt wallet (min 8 characters)"
+                                required
                             />
                         </div>
 
-                        {newPassword && (
-                            <div className="space-y-2">
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    Confirm Password
-                                </label>
-                                <input
-                                    type="password"
-                                    value={confirmPassword}
-                                    onChange={(e) => setConfirmPassword(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-avian-orange focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                    placeholder="Confirm password"
-                                />
-                            </div>
-                        )}
+                        <div className="space-y-2">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Confirm Password
+                            </label>
+                            <input
+                                type="password"
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-avian-orange focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                placeholder="Confirm password"
+                                required
+                            />
+                        </div>
 
                         <div className="flex gap-2">
                             <button

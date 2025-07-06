@@ -9,32 +9,50 @@ import {
 } from '@/types/security'
 import { StorageService } from './StorageService'
 import * as CryptoJS from 'crypto-js'
-import { ECPairFactory } from 'ecpair'
-import * as bitcoin from 'bitcoinjs-lib'
 
-// Dynamic import for tiny-secp256k1 to handle WebAssembly loading
+// Dynamic imports for bitcoin libraries to avoid SSR issues
+let bitcoin: any = null
+let ECPairFactory: any = null
 let ecc: any = null
 let ECPair: any = null
 
-// Initialize ECC and ECPair asynchronously
-const initializeECC = async () => {
-    if (ecc && ECPair) return { ecc, ECPair }
+// Initialize crypto libraries asynchronously
+const initializeCrypto = async () => {
+    if (typeof window === 'undefined') {
+        // Server-side: return mock implementations
+        return {
+            bitcoin: null,
+            ECPair: null,
+            ecc: null
+        }
+    }
+
+    if (bitcoin && ECPair && ecc) {
+        return { bitcoin, ECPair, ecc }
+    }
 
     try {
-        // Dynamic import to handle WebAssembly loading
-        const eccModule = await import('tiny-secp256k1')
+        // Dynamic imports to avoid SSR issues
+        const [bitcoinModule, ecpairModule, eccModule] = await Promise.all([
+            import('bitcoinjs-lib'),
+            import('ecpair'),
+            import('tiny-secp256k1')
+        ])
+
+        bitcoin = bitcoinModule
+        ECPairFactory = ecpairModule.ECPairFactory
         ecc = eccModule as any
         ECPair = ECPairFactory(ecc)
-        return { ecc, ECPair }
+
+        return { bitcoin, ECPair, ecc }
     } catch (error) {
-        console.warn('Failed to load tiny-secp256k1 WebAssembly module:', error)
-        // Fallback: disable ECC-dependent features
-        return { ecc: null, ECPair: null }
+        console.warn('Failed to load crypto libraries:', error)
+        return { bitcoin: null, ECPair: null, ecc: null }
     }
 }
 
 // Avian network configuration for validation
-const avianNetwork: bitcoin.Network = {
+const getAvianNetwork = () => ({
     messagePrefix: '\x19Raven Signed Message:\n',
     bech32: 'avn',
     bip32: {
@@ -44,12 +62,12 @@ const avianNetwork: bitcoin.Network = {
     pubKeyHash: 0x3c, // Avian addresses start with 'R'
     scriptHash: 0x7a,
     wif: 0x80,
-}
+})
 
 export class SecurityService {
     private static instance: SecurityService | null = null
     private securityState: SecurityState = {
-        isLocked: false,
+        isLocked: true, // Default to locked for security
         lastActivity: Date.now(),
         biometricAvailable: false,
         requiresPasswordUnlock: false
@@ -98,13 +116,27 @@ export class SecurityService {
 
             // Check if we should start in locked state (only in browser)
             if (this.isBrowser()) {
-                const lastActivity = localStorage.getItem('lastActivity')
-                if (lastActivity && settings.autoLock.enabled) {
-                    const timeSinceLastActivity = Date.now() - parseInt(lastActivity)
-                    if (timeSinceLastActivity > settings.autoLock.timeout) {
-                        this.lockWallet('timeout')
-                    }
+                // Check if there are any stored wallets
+                const activeWallet = await StorageService.getActiveWallet()
+
+                if (activeWallet) {
+                    // If wallets exist, ALWAYS start in locked state for security
+                    // This ensures that after a page refresh, the user must authenticate
+                    this.securityState.isLocked = true
+                    this.securityState.lockReason = 'manual'
+
+                    // Clear any existing session markers to force re-authentication
+                    sessionStorage.removeItem('security_session_active')
+
+                    console.log('SecurityService: Wallet detected, starting in locked state')
+                } else {
+                    // No wallet exists, safe to unlock
+                    this.securityState.isLocked = false
+                    console.log('SecurityService: No wallet detected, starting unlocked')
                 }
+            } else {
+                // Server-side, always start locked for security
+                this.securityState.isLocked = true
             }
 
             this.initialized = true
@@ -295,6 +327,11 @@ export class SecurityService {
         this.securityState.lockReason = reason
         this.clearAutoLock()
 
+        // Clear session state when locking
+        if (this.isBrowser()) {
+            sessionStorage.removeItem('security_session_active')
+        }
+
         await this.logSecurityEvent('wallet_lock', `Wallet locked: ${reason}`, true)
         this.notifyLockStateChange(true)
     } async unlockWallet(password?: string, useBiometric: boolean = false): Promise<boolean> {
@@ -317,6 +354,12 @@ export class SecurityService {
                     this.securityState.isLocked = false
                     this.securityState.requiresPasswordUnlock = false
                     this.updateActivity()
+
+                    // Mark session as active for this tab
+                    if (this.isBrowser()) {
+                        sessionStorage.setItem('security_session_active', 'true')
+                    }
+
                     await this.logSecurityEvent('wallet_unlock', 'Wallet unlocked with biometric', true)
                     this.notifyLockStateChange(false)
                     return true
@@ -353,6 +396,12 @@ export class SecurityService {
                 this.securityState.isLocked = false
                 this.securityState.requiresPasswordUnlock = false
                 this.updateActivity()
+
+                // Mark session as active for this tab
+                if (this.isBrowser()) {
+                    sessionStorage.setItem('security_session_active', 'true')
+                }
+
                 await this.logSecurityEvent('password_auth', 'Wallet unlocked with password', true)
                 this.notifyLockStateChange(false)
                 return true
@@ -361,6 +410,12 @@ export class SecurityService {
                 this.resetFailedAttempts()
                 this.securityState.isLocked = false
                 this.updateActivity()
+
+                // Mark session as active for this tab
+                if (this.isBrowser()) {
+                    sessionStorage.setItem('security_session_active', 'true')
+                }
+
                 this.notifyLockStateChange(false)
                 await this.logSecurityEvent('wallet_unlock', 'Non-encrypted wallet unlocked', true)
                 return true
@@ -386,7 +441,7 @@ export class SecurityService {
             }
 
             // Initialize ECC if not already done
-            const { ECPair: ECPairLib } = await initializeECC()
+            const { ECPair: ECPairLib } = await initializeCrypto()
 
             if (!ECPairLib) {
                 // If ECC library failed to load, fall back to basic validation
@@ -396,7 +451,7 @@ export class SecurityService {
             }
 
             // Verify the decrypted key is valid WIF format for Avian network
-            ECPairLib.fromWIF(decrypted, avianNetwork)
+            ECPairLib.fromWIF(decrypted, getAvianNetwork())
             return true
         } catch (error) {
             // If decryption or WIF parsing fails, password is incorrect
@@ -564,7 +619,13 @@ export class SecurityService {
         return { ...this.securityState }
     }
 
-    isLocked(): boolean {
+    async isLocked(): Promise<boolean> {
+        await this.ensureInitialized()
+        return this.securityState.isLocked
+    }
+
+    // Synchronous version for backwards compatibility (but should be avoided)
+    isLockedSync(): boolean {
         return this.securityState.isLocked
     }
 

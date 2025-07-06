@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
+import '@/utils/browser-polyfills'
 import { WalletProvider } from '@/contexts/WalletContext'
 import { SecurityProvider } from '@/contexts/SecurityContext'
 import { TermsProvider } from '@/contexts/TermsContext'
@@ -9,8 +10,8 @@ import { ToastProvider } from '@/components/Toast'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-    title: 'Avian Wallet PWA',
-    description: 'Avian cryptocurrency wallet as a Progressive Web App',
+    title: 'Avian FlightDeck',
+    description: 'Avian cryptocurrency wallet',
     manifest: '/manifest.json',
     icons: {
         icon: '/icons/icon-192x192.png',
@@ -37,7 +38,7 @@ export default function RootLayout({
                 <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
                 <meta name="apple-mobile-web-app-capable" content="yes" />
                 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-                <meta name="apple-mobile-web-app-title" content="Avian Wallet" />
+                <meta name="apple-mobile-web-app-title" content="Avian FlightDeck" />
                 <script
                     dangerouslySetInnerHTML={{
                         __html: `

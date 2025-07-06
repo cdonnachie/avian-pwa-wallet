@@ -19,10 +19,33 @@ export function WalletManager({ onWalletSelect, onClose }: WalletManagerProps) {
     const [showImportKeyForm, setShowImportKeyForm] = useState(false)
     const [showImportMnemonicForm, setShowImportMnemonicForm] = useState(false)
     const [newWalletName, setNewWalletName] = useState('')
+    const [newWalletPassword, setNewWalletPassword] = useState('')
+    const [newWalletPasswordConfirm, setNewWalletPasswordConfirm] = useState('')
     const [importWalletName, setImportWalletName] = useState('')
+    const [importWalletPassword, setImportWalletPassword] = useState('')
+    const [importWalletPasswordConfirm, setImportWalletPasswordConfirm] = useState('')
     const [importPrivateKey, setImportPrivateKey] = useState('')
     const [importMnemonic, setImportMnemonic] = useState('')
     const [isCreating, setIsCreating] = useState(false)
+    const [passwordError, setPasswordError] = useState('')
+
+    // Password validation helper
+    const validatePassword = (password: string, confirmPassword: string): string | null => {
+        if (!password) {
+            return 'Password is required for wallet security'
+        }
+        if (password.length < 8) {
+            return 'Password must be at least 8 characters long'
+        }
+        if (password !== confirmPassword) {
+            return 'Passwords do not match'
+        }
+        // Check for complexity (at least one number, one letter)
+        if (!/(?=.*[a-zA-Z])(?=.*\d)/.test(password)) {
+            return 'Password must contain at least one letter and one number'
+        }
+        return null
+    }
 
     useEffect(() => {
         loadWallets()
@@ -64,8 +87,16 @@ export function WalletManager({ onWalletSelect, onClose }: WalletManagerProps) {
     const handleCreateWallet = async () => {
         if (!newWalletName.trim()) return
 
+        // Validate password
+        const passwordValidationError = validatePassword(newWalletPassword, newWalletPasswordConfirm)
+        if (passwordValidationError) {
+            setPasswordError(passwordValidationError)
+            return
+        }
+
         try {
             setIsCreating(true)
+            setPasswordError('')
 
             // Use WalletService to create a proper wallet with real keys
             const { WalletService } = await import('@/services/WalletService')
@@ -73,6 +104,7 @@ export function WalletManager({ onWalletSelect, onClose }: WalletManagerProps) {
 
             const newWallet = await walletService.createNewWallet({
                 name: newWalletName.trim(),
+                password: newWalletPassword, // Now mandatory
                 useMnemonic: true, // Generate with BIP39 mnemonic
                 makeActive: true
             })
@@ -80,6 +112,8 @@ export function WalletManager({ onWalletSelect, onClose }: WalletManagerProps) {
             await loadWallets()
             setShowCreateForm(false)
             setNewWalletName('')
+            setNewWalletPassword('')
+            setNewWalletPasswordConfirm('')
 
             // Reload the wallet context to update the UI
             await reloadActiveWallet()
@@ -114,8 +148,16 @@ export function WalletManager({ onWalletSelect, onClose }: WalletManagerProps) {
     const handleImportPrivateKey = async () => {
         if (!importWalletName.trim() || !importPrivateKey.trim()) return
 
+        // Validate password
+        const passwordValidationError = validatePassword(importWalletPassword, importWalletPasswordConfirm)
+        if (passwordValidationError) {
+            setPasswordError(passwordValidationError)
+            return
+        }
+
         try {
             setIsCreating(true)
+            setPasswordError('')
 
             const { WalletService } = await import('@/services/WalletService')
             const walletService = new WalletService()
@@ -123,12 +165,15 @@ export function WalletManager({ onWalletSelect, onClose }: WalletManagerProps) {
             const newWallet = await walletService.importWalletFromPrivateKey({
                 name: importWalletName.trim(),
                 privateKey: importPrivateKey.trim(),
+                password: importWalletPassword, // Now mandatory
                 makeActive: true
             })
 
             await loadWallets()
             setShowImportKeyForm(false)
             setImportWalletName('')
+            setImportWalletPassword('')
+            setImportWalletPasswordConfirm('')
             setImportPrivateKey('')
 
             await reloadActiveWallet()
@@ -147,8 +192,16 @@ export function WalletManager({ onWalletSelect, onClose }: WalletManagerProps) {
     const handleImportMnemonic = async () => {
         if (!importWalletName.trim() || !importMnemonic.trim()) return
 
+        // Validate password
+        const passwordValidationError = validatePassword(importWalletPassword, importWalletPasswordConfirm)
+        if (passwordValidationError) {
+            setPasswordError(passwordValidationError)
+            return
+        }
+
         try {
             setIsCreating(true)
+            setPasswordError('')
 
             const { WalletService } = await import('@/services/WalletService')
             const walletService = new WalletService()
@@ -156,12 +209,15 @@ export function WalletManager({ onWalletSelect, onClose }: WalletManagerProps) {
             const newWallet = await walletService.importWalletFromMnemonic({
                 name: importWalletName.trim(),
                 mnemonic: importMnemonic.trim(),
+                password: importWalletPassword, // Now mandatory
                 makeActive: true
             })
 
             await loadWallets()
             setShowImportMnemonicForm(false)
             setImportWalletName('')
+            setImportWalletPassword('')
+            setImportWalletPasswordConfirm('')
             setImportMnemonic('')
 
             await reloadActiveWallet()
@@ -259,29 +315,69 @@ export function WalletManager({ onWalletSelect, onClose }: WalletManagerProps) {
                     <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-3">
                         Create New Wallet
                     </h3>
-                    <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="space-y-3">
                         <input
                             type="text"
                             value={newWalletName}
                             onChange={(e) => setNewWalletName(e.target.value)}
                             placeholder="Wallet name"
-                            className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                            onKeyPress={(e) => e.key === 'Enter' && handleCreateWallet()}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                         />
+
+                        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-3">
+                            <div className="flex items-start">
+                                <div className="flex-shrink-0">
+                                    <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                                    </svg>
+                                </div>
+                                <div className="ml-3 text-sm">
+                                    <p className="text-blue-800 dark:text-blue-200 font-medium">Security Requirement</p>
+                                    <p className="text-blue-700 dark:text-blue-300 mt-1">
+                                        All wallets must be password protected for your security. Choose a strong password you&apos;ll remember.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <input
+                            type="password"
+                            value={newWalletPassword}
+                            onChange={(e) => setNewWalletPassword(e.target.value)}
+                            placeholder="Enter wallet password (required)"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                        />
+                        <input
+                            type="password"
+                            value={newWalletPasswordConfirm}
+                            onChange={(e) => setNewWalletPasswordConfirm(e.target.value)}
+                            placeholder="Confirm wallet password"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                        />
+
+                        {passwordError && (
+                            <div className="p-3 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-700 rounded-lg">
+                                <p className="text-sm text-red-700 dark:text-red-200">{passwordError}</p>
+                            </div>
+                        )}
+
                         <div className="flex gap-2">
                             <button
                                 onClick={handleCreateWallet}
-                                disabled={isCreating || !newWalletName.trim()}
-                                className="flex-1 sm:flex-none px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                disabled={isCreating || !newWalletName.trim() || !newWalletPassword || !newWalletPasswordConfirm}
+                                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                             >
-                                {isCreating ? 'Creating...' : 'Create'}
+                                {isCreating ? 'Creating...' : 'Create Wallet'}
                             </button>
                             <button
                                 onClick={() => {
                                     setShowCreateForm(false)
                                     setNewWalletName('')
+                                    setNewWalletPassword('')
+                                    setNewWalletPasswordConfirm('')
+                                    setPasswordError('')
                                 }}
-                                className="flex-1 sm:flex-none px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                                className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
                             >
                                 Cancel
                             </button>
@@ -310,21 +406,62 @@ export function WalletManager({ onWalletSelect, onClose }: WalletManagerProps) {
                             placeholder="Enter your private key (WIF format)"
                             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white h-20 resize-none"
                         />
+
+                        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-3">
+                            <div className="flex items-start">
+                                <div className="flex-shrink-0">
+                                    <svg className="h-5 w-5 text-amber-400" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                    </svg>
+                                </div>
+                                <div className="ml-3 text-sm">
+                                    <p className="text-amber-800 dark:text-amber-200 font-medium">Security Required</p>
+                                    <p className="text-amber-700 dark:text-amber-300 mt-1">
+                                        Your imported wallet will be encrypted with a password for security.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <input
+                            type="password"
+                            value={importWalletPassword}
+                            onChange={(e) => setImportWalletPassword(e.target.value)}
+                            placeholder="Create wallet password (required)"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                        />
+                        <input
+                            type="password"
+                            value={importWalletPasswordConfirm}
+                            onChange={(e) => setImportWalletPasswordConfirm(e.target.value)}
+                            placeholder="Confirm wallet password"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                        />
+
+                        {passwordError && (
+                            <div className="p-3 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-700 rounded-lg">
+                                <p className="text-sm text-red-700 dark:text-red-200">{passwordError}</p>
+                            </div>
+                        )}
+
                         <div className="flex gap-2">
                             <button
                                 onClick={handleImportPrivateKey}
-                                disabled={isCreating || !importWalletName.trim() || !importPrivateKey.trim()}
-                                className="flex-1 sm:flex-none px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                disabled={isCreating || !importWalletName.trim() || !importPrivateKey.trim() || !importWalletPassword || !importWalletPasswordConfirm}
+                                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                             >
-                                {isCreating ? 'Importing...' : 'Import'}
+                                {isCreating ? 'Importing...' : 'Import Wallet'}
                             </button>
                             <button
                                 onClick={() => {
                                     setShowImportKeyForm(false)
                                     setImportWalletName('')
+                                    setImportWalletPassword('')
+                                    setImportWalletPasswordConfirm('')
                                     setImportPrivateKey('')
+                                    setPasswordError('')
                                 }}
-                                className="flex-1 sm:flex-none px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                                className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
                             >
                                 Cancel
                             </button>
@@ -353,21 +490,62 @@ export function WalletManager({ onWalletSelect, onClose }: WalletManagerProps) {
                             placeholder="Enter your 12-word mnemonic phrase (separated by spaces)"
                             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white h-20 resize-none"
                         />
+
+                        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-3">
+                            <div className="flex items-start">
+                                <div className="flex-shrink-0">
+                                    <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                    </svg>
+                                </div>
+                                <div className="ml-3 text-sm">
+                                    <p className="text-green-800 dark:text-green-200 font-medium">Secure Recovery</p>
+                                    <p className="text-green-700 dark:text-green-300 mt-1">
+                                        Your recovered wallet will be encrypted with a password for enhanced security.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <input
+                            type="password"
+                            value={importWalletPassword}
+                            onChange={(e) => setImportWalletPassword(e.target.value)}
+                            placeholder="Create wallet password (required)"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                        />
+                        <input
+                            type="password"
+                            value={importWalletPasswordConfirm}
+                            onChange={(e) => setImportWalletPasswordConfirm(e.target.value)}
+                            placeholder="Confirm wallet password"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                        />
+
+                        {passwordError && (
+                            <div className="p-3 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-700 rounded-lg">
+                                <p className="text-sm text-red-700 dark:text-red-200">{passwordError}</p>
+                            </div>
+                        )}
+
                         <div className="flex gap-2">
                             <button
                                 onClick={handleImportMnemonic}
-                                disabled={isCreating || !importWalletName.trim() || !importMnemonic.trim()}
-                                className="flex-1 sm:flex-none px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                disabled={isCreating || !importWalletName.trim() || !importMnemonic.trim() || !importWalletPassword || !importWalletPasswordConfirm}
+                                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                             >
-                                {isCreating ? 'Importing...' : 'Import'}
+                                {isCreating ? 'Importing...' : 'Import Wallet'}
                             </button>
                             <button
                                 onClick={() => {
                                     setShowImportMnemonicForm(false)
                                     setImportWalletName('')
+                                    setImportWalletPassword('')
+                                    setImportWalletPasswordConfirm('')
                                     setImportMnemonic('')
+                                    setPasswordError('')
                                 }}
-                                className="flex-1 sm:flex-none px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                                className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
                             >
                                 Cancel
                             </button>

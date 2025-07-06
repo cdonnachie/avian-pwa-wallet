@@ -54,7 +54,7 @@ export function TermsProvider({ children }: TermsProviderProps) {
 
     const handleDeclineTerms = () => {
         // If user declines, they can't use the app
-        alert('You must accept the terms to use Avian Wallet.')
+        alert('You must accept the terms to use Avian FlightDeck.')
         // Keep the modal open
     }
 
@@ -68,7 +68,7 @@ export function TermsProvider({ children }: TermsProviderProps) {
             <div className="fixed inset-0 bg-gray-900 flex items-center justify-center">
                 <div className="text-center">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-avian-500 mx-auto mb-4"></div>
-                    <p className="text-white">Loading Avian Wallet...</p>
+                    <p className="text-white">Loading Avian FlightDeck...</p>
                 </div>
             </div>
         )

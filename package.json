@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "description": "Avian cryptocurrency wallet as a Progressive Web App",
   "scripts": {
-    "dev": "next dev --turbo",
+    "dev": "next dev",
     "dev:https": "npm run ssl:setup && node scripts/https-server.js",
-    "dev:ssl": "npm run ssl:setup && set HTTPS=true&& set ENABLE_PWA=true&& next dev --turbo -p 3001",
+    "dev:ssl": "npm run ssl:setup && set HTTPS=true&& set ENABLE_PWA=true&& next dev -p 3001",
     "dev:pwa": "node scripts/dev-pwa.js",
     "ssl:setup": "node scripts/create-ssl-cert.js",
     "build": "next build",
@@ -14,6 +14,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@bitcoin-js/tiny-secp256k1-asmjs": "^2.2.4",
     "@types/crypto-js": "^4.2.2",
     "@types/node": "^20",
     "@types/qrcode": "^1.5.5",
@@ -40,12 +41,17 @@
   "devDependencies": {
     "@types/node": "^20",
     "@vitejs/plugin-basic-ssl": "^2.1.0",
+    "assert": "^2.1.0",
     "autoprefixer": "^10.4.21",
     "buffer": "^6.0.3",
     "cross-env": "^7.0.3",
     "local-ssl-proxy": "^2.0.5",
+    "node-polyfill-webpack-plugin": "^4.1.0",
     "postcss": "^8.5.6",
     "process": "^0.11.10",
-    "selfsigned": "^2.4.1"
+    "querystring-es3": "^0.2.1",
+    "selfsigned": "^2.4.1",
+    "url": "^0.11.4",
+    "util": "^0.12.5"
   }
 }

@@ -26,7 +26,7 @@ export function SecurityProvider({ children }: SecurityProviderProps) {
         // Initialize security service and check if wallet should be locked
         const initSecurity = async () => {
             try {
-                const isCurrentlyLocked = securityService.isLocked()
+                const isCurrentlyLocked = await securityService.isLocked()
                 setIsLocked(isCurrentlyLocked)
             } catch (error) {
                 console.error('Failed to initialize security context:', error)

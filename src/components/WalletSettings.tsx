@@ -319,23 +319,6 @@ export default function WalletSettings() {
                 </div>
             </div>
 
-            {/* Server Management Info */}
-            <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">
-                            Server Connection
-                        </p>
-                        <p className="text-xs text-gray-600 dark:text-gray-400">
-                            Manage ElectrumX server connections in the main interface
-                        </p>
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                        See connection status below ↓
-                    </div>
-                </div>
-            </div>
-
             {/* Mnemonic Modal */}
             {showMnemonicModal && (
                 <MnemonicModal
