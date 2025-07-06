@@ -1,12 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import { Send, AlertCircle, ExternalLink, BookOpen } from 'lucide-react'
+import { Send, AlertCircle, ExternalLink, BookOpen, Settings, Coins, Lock } from 'lucide-react'
 import { useWallet } from '@/contexts/WalletContext'
 import { useSecurity } from '@/contexts/SecurityContext'
 import { WalletService } from '@/services/WalletService'
 import { StorageService } from '@/services/StorageService'
+import { CoinSelectionStrategy } from '@/services/UTXOSelectionService'
 import AddressBook from './AddressBook'
+import { UTXOSelectionSettings } from './UTXOSelectionSettings'
+import { UTXOOverview } from './UTXOOverview'
 
 export default function SendForm() {
     const { sendTransaction, balance, isLoading, isConnected, isEncrypted } = useWallet()
@@ -20,6 +23,19 @@ export default function SendForm() {
     const [isSending, setIsSending] = useState(false)
     const [showAddressBook, setShowAddressBook] = useState(false)
     const [askToSaveAddress, setAskToSaveAddress] = useState(false)
+    const [showUTXOSettings, setShowUTXOSettings] = useState(false)
+    const [showUTXOOverview, setShowUTXOOverview] = useState(false)
+    const [utxoOptions, setUtxoOptions] = useState<{
+        strategy?: CoinSelectionStrategy
+        feeRate?: number
+        maxInputs?: number
+        minConfirmations?: number
+    }>({
+        strategy: CoinSelectionStrategy.BEST_FIT,
+        feeRate: 10000,
+        maxInputs: 20,
+        minConfirmations: 0
+    })
 
     const validateAddress = (address: string): boolean => {
         // Avian addresses should be base58 encoded and start with 'R'
@@ -94,7 +110,7 @@ export default function SendForm() {
 
 
 
-            const txId = await sendTransaction(toAddress, amountSatoshis, password)
+            const txId = await sendTransaction(toAddress, amountSatoshis, password, utxoOptions)
 
             setSuccess('Transaction sent successfully!')
             setSuccessTxId(txId)
@@ -171,21 +187,135 @@ export default function SendForm() {
 
     const maxAmount = Math.max(0, (balance - 10000) / 100000000) // Subtract fee
 
+    const resetUTXOSettings = () => {
+        setUtxoOptions({
+            strategy: CoinSelectionStrategy.BEST_FIT,
+            feeRate: 10000,
+            maxInputs: 20,
+            minConfirmations: 0
+        })
+    }
+
+    const handleLockWallet = async () => {
+        try {
+            // Import securityService dynamically to avoid circular dependencies
+            const { securityService } = await import('@/services/SecurityService')
+            await securityService.lockWallet('manual')
+            // The wallet context should handle the lock state change and show the lock screen
+        } catch (error) {
+            console.error('Failed to lock wallet:', error)
+        }
+    }
+
     return (
         <div className="p-6">
-            <div className="flex items-center mb-4">
-                <Send className="w-5 h-5 mr-2 text-avian-600" />
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Send AVN
-                </h3>
-                <button
-                    onClick={() => setShowAddressBook(!showAddressBook)}
-                    className="ml-auto flex items-center text-sm text-avian-600 hover:text-avian-700"
-                >
-                    <BookOpen className="w-4 h-4 mr-1" />
-                    Address Book
-                </button>
+            <div className="mb-6">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center">
+                        <Send className="w-5 h-5 mr-2 text-avian-600" />
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                            Send AVN
+                        </h3>
+                    </div>
+                    <button
+                        onClick={handleLockWallet}
+                        className="flex items-center px-3 py-2 text-sm bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg border border-red-200 dark:border-red-700 transition-colors"
+                        title="Lock Wallet"
+                    >
+                        <Lock className="w-4 h-4 mr-1.5" />
+                        Lock
+                    </button>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => setShowUTXOOverview(true)}
+                        className="flex items-center px-3 py-2 text-sm bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-700 transition-colors"
+                        title="View Available UTXOs"
+                    >
+                        <Coins className="w-4 h-4 mr-1.5" />
+                        UTXOs
+                    </button>
+                    <button
+                        onClick={() => setShowUTXOSettings(true)}
+                        className={`relative flex items-center px-3 py-2 text-sm rounded-lg border transition-colors ${utxoOptions.strategy !== CoinSelectionStrategy.BEST_FIT ||
+                                utxoOptions.feeRate !== 10000 ||
+                                utxoOptions.maxInputs !== 20 ||
+                                utxoOptions.minConfirmations !== 0
+                                ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-700'
+                                : 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 border-gray-200 dark:border-gray-600'
+                            }`}
+                        title="Advanced Transaction Settings"
+                    >
+                        <Settings className="w-4 h-4 mr-1.5" />
+                        Advanced
+                        {(utxoOptions.strategy !== CoinSelectionStrategy.BEST_FIT ||
+                            utxoOptions.feeRate !== 10000 ||
+                            utxoOptions.maxInputs !== 20 ||
+                            utxoOptions.minConfirmations !== 0) && (
+                                <span className="absolute -top-1 -right-1 w-2 h-2 bg-amber-500 rounded-full"></span>
+                            )}
+                    </button>
+                    <button
+                        onClick={() => setShowAddressBook(!showAddressBook)}
+                        className={`flex items-center px-3 py-2 text-sm rounded-lg border transition-colors ${showAddressBook
+                                ? 'bg-avian-100 dark:bg-avian-900/20 text-avian-700 dark:text-avian-300 border-avian-200 dark:border-avian-700'
+                                : 'bg-avian-50 dark:bg-avian-900/10 text-avian-600 dark:text-avian-400 hover:bg-avian-100 dark:hover:bg-avian-900/20 border-avian-200 dark:border-avian-700'
+                            }`}
+                        title="Address Book"
+                    >
+                        <BookOpen className="w-4 h-4 mr-1.5" />
+                        Address Book
+                    </button>
+                </div>
             </div>
+
+            {/* UTXO Selection Status */}
+            {(utxoOptions.strategy !== CoinSelectionStrategy.BEST_FIT ||
+                utxoOptions.feeRate !== 10000 ||
+                utxoOptions.maxInputs !== 20 ||
+                utxoOptions.minConfirmations !== 0) && (
+                    <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center">
+                                <Settings className="w-4 h-4 mr-2 text-blue-600 dark:text-blue-400" />
+                                <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                                    Custom Transaction Settings Active
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={resetUTXOSettings}
+                                    className="text-xs text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 underline"
+                                >
+                                    Reset
+                                </button>
+                                <button
+                                    onClick={() => setShowUTXOSettings(true)}
+                                    className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 underline"
+                                >
+                                    Modify
+                                </button>
+                            </div>
+                        </div>
+                        <div className="mt-2 text-xs text-blue-700 dark:text-blue-300 space-y-1">
+                            {utxoOptions.strategy !== CoinSelectionStrategy.BEST_FIT && (
+                                <div>Strategy: {utxoOptions.strategy?.replace(/_/g, ' ')}</div>
+                            )}
+                            {utxoOptions.feeRate !== 10000 && (
+                                <div>Fee Rate: {utxoOptions.feeRate} sat/vB</div>
+                            )}
+                            {utxoOptions.maxInputs !== 20 && (
+                                <div>Max Inputs: {utxoOptions.maxInputs}</div>
+                            )}
+                            {utxoOptions.minConfirmations !== 0 && (
+                                <div>Min Confirmations: {utxoOptions.minConfirmations}</div>
+                            )}
+                        </div>
+                    </div>
+                )}
 
             {/* Address Book */}
             {showAddressBook && (
@@ -326,6 +456,20 @@ export default function SendForm() {
                     </button>
                 </div>
             )}
+
+            {/* UTXO Selection Settings Modal */}
+            <UTXOSelectionSettings
+                isOpen={showUTXOSettings}
+                onClose={() => setShowUTXOSettings(false)}
+                onApply={(options) => setUtxoOptions(options)}
+                currentOptions={utxoOptions}
+            />
+
+            {/* UTXO Overview Modal */}
+            <UTXOOverview
+                isOpen={showUTXOOverview}
+                onClose={() => setShowUTXOOverview(false)}
+            />
         </div>
     )
 }

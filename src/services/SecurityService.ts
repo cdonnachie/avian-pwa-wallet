@@ -8,6 +8,26 @@ import {
     SecurityState
 } from '@/types/security'
 import { StorageService } from './StorageService'
+import * as CryptoJS from 'crypto-js'
+import { ECPairFactory } from 'ecpair'
+import * as ecc from 'tiny-secp256k1'
+import * as bitcoin from 'bitcoinjs-lib'
+
+// Initialize ECPair for password validation
+const ECPair = ECPairFactory(ecc)
+
+// Avian network configuration for validation
+const avianNetwork: bitcoin.Network = {
+    messagePrefix: '\x19Raven Signed Message:\n',
+    bech32: 'avn',
+    bip32: {
+        public: 0x0488b21e,
+        private: 0x0488ade4,
+    },
+    pubKeyHash: 0x3c, // Avian addresses start with 'R'
+    scriptHash: 0x7a,
+    wif: 0x80,
+}
 
 export class SecurityService {
     private static instance: SecurityService | null = null
@@ -21,9 +41,14 @@ export class SecurityService {
     private activityListeners: (() => void)[] = []
     private lockStateListeners: ((isLocked: boolean, reason?: 'timeout' | 'manual' | 'failed_auth') => void)[] = []
     private initialized: boolean = false
+    private failedAttempts: number = 0
+    private lastFailedAttempt: number = 0
+    private readonly MAX_FAILED_ATTEMPTS = 5
+    private readonly LOCKOUT_DURATION = 300000 // 5 minutes in milliseconds
 
     constructor() {
         this.setupActivityTracking()
+        this.loadFailedAttemptsFromStorage()
         // Don't call initializeSecurity here - wait for first use
     }
 
@@ -245,11 +270,19 @@ export class SecurityService {
         try {
             await this.ensureInitialized()
 
+            // Check for lockout due to failed attempts
+            if (this.isLockedOut()) {
+                const timeRemaining = this.getRemainingLockoutTime()
+                await this.logSecurityEvent('password_auth', `Unlock attempt during lockout period (${Math.ceil(timeRemaining / 1000)}s remaining)`, false)
+                throw new Error(`Too many failed attempts. Please wait ${Math.ceil(timeRemaining / 1000)} seconds before trying again.`)
+            }
+
             const settings = await this.getSecuritySettings()
 
             if (useBiometric && settings.biometric.enabled) {
                 const biometricResult = await this.authenticateWithBiometric()
                 if (biometricResult.success) {
+                    this.resetFailedAttempts()
                     this.securityState.isLocked = false
                     this.securityState.requiresPasswordUnlock = false
                     this.updateActivity()
@@ -260,32 +293,72 @@ export class SecurityService {
             }
 
             // Password authentication
-            if (password) {
-                // Verify password against active wallet
-                const activeWallet = await StorageService.getActiveWallet()
-                if (activeWallet && activeWallet.isEncrypted) {
-                    // This would need integration with WalletService to verify password
-                    // For now, we'll assume password verification happens elsewhere
-                    this.securityState.isLocked = false
-                    this.securityState.requiresPasswordUnlock = false
-                    this.updateActivity()
-                    await this.logSecurityEvent('password_auth', 'Wallet unlocked with password', true)
-                    this.notifyLockStateChange(false)
-                    return true
-                } else {
-                    // No encrypted wallet, allow unlock
-                    this.securityState.isLocked = false
-                    this.updateActivity()
-                    this.notifyLockStateChange(false)
-                    return true
-                }
+            const activeWallet = await StorageService.getActiveWallet()
+            if (!activeWallet) {
+                return false
             }
 
-            await this.logSecurityEvent('wallet_unlock', 'Wallet unlock failed', false)
-            return false
+            if (activeWallet.isEncrypted) {
+                if (!password) {
+                    return false
+                }
+
+                // Validate password by attempting to decrypt the private key
+                const isValidPassword = await this.validateWalletPassword(activeWallet.privateKey, password)
+                if (!isValidPassword) {
+                    this.recordFailedAttempt()
+                    await this.logSecurityEvent('password_auth', 'Invalid password attempt', false)
+
+                    // Check if we should lock the wallet due to too many failed attempts
+                    if (this.failedAttempts >= this.MAX_FAILED_ATTEMPTS) {
+                        await this.lockWallet('failed_auth')
+                        throw new Error(`Wallet locked due to ${this.MAX_FAILED_ATTEMPTS} failed password attempts. Please wait ${this.LOCKOUT_DURATION / 60000} minutes.`)
+                    }
+
+                    return false
+                }
+
+                this.resetFailedAttempts()
+                this.securityState.isLocked = false
+                this.securityState.requiresPasswordUnlock = false
+                this.updateActivity()
+                await this.logSecurityEvent('password_auth', 'Wallet unlocked with password', true)
+                this.notifyLockStateChange(false)
+                return true
+            } else {
+                // Non-encrypted wallet, allow unlock without password
+                this.resetFailedAttempts()
+                this.securityState.isLocked = false
+                this.updateActivity()
+                this.notifyLockStateChange(false)
+                await this.logSecurityEvent('wallet_unlock', 'Non-encrypted wallet unlocked', true)
+                return true
+            }
         } catch (error) {
             console.error('Unlock error:', error)
             await this.logSecurityEvent('wallet_unlock', `Wallet unlock error: ${error}`, false)
+            throw error // Re-throw to allow UI to handle the specific error message
+        }
+    }
+
+    /**
+     * Validate wallet password by attempting to decrypt the private key
+     */
+    private async validateWalletPassword(encryptedPrivateKey: string, password: string): Promise<boolean> {
+        try {
+            // Attempt to decrypt the private key
+            const decrypted = CryptoJS.AES.decrypt(encryptedPrivateKey, password).toString(CryptoJS.enc.Utf8)
+
+            // If decryption returns an empty string, the password was incorrect
+            if (!decrypted) {
+                return false
+            }
+
+            // Verify the decrypted key is valid WIF format for Avian network
+            ECPair.fromWIF(decrypted, avianNetwork)
+            return true
+        } catch (error) {
+            // If decryption or WIF parsing fails, password is incorrect
             return false
         }
     }
@@ -474,6 +547,72 @@ export class SecurityService {
         this.clearAutoLock()
         this.lockStateListeners = []
         this.activityListeners = []
+    }
+
+    // Rate limiting and lockout methods
+    isLockedOut(): boolean {
+        if (this.failedAttempts < this.MAX_FAILED_ATTEMPTS) {
+            return false
+        }
+
+        const timeSinceLastFailure = Date.now() - this.lastFailedAttempt
+        return timeSinceLastFailure < this.LOCKOUT_DURATION
+    }
+
+    getRemainingLockoutTime(): number {
+        if (!this.isLockedOut()) {
+            return 0
+        }
+
+        const timeSinceLastFailure = Date.now() - this.lastFailedAttempt
+        return Math.max(0, this.LOCKOUT_DURATION - timeSinceLastFailure)
+    }
+
+    recordFailedAttempt(): void {
+        this.failedAttempts++
+        this.lastFailedAttempt = Date.now()
+
+        // Persist failed attempts to localStorage to survive page refreshes
+        try {
+            localStorage.setItem('security_failed_attempts', this.failedAttempts.toString())
+            localStorage.setItem('security_last_failed_attempt', this.lastFailedAttempt.toString())
+        } catch (error) {
+            console.error('Failed to persist security state:', error)
+        }
+    }
+
+    resetFailedAttempts(): void {
+        this.failedAttempts = 0
+        this.lastFailedAttempt = 0
+
+        // Clear from localStorage
+        try {
+            localStorage.removeItem('security_failed_attempts')
+            localStorage.removeItem('security_last_failed_attempt')
+        } catch (error) {
+            console.error('Failed to clear security state:', error)
+        }
+    }
+
+    // Load failed attempts from localStorage on service initialization
+    private loadFailedAttemptsFromStorage(): void {
+        try {
+            const storedFailedAttempts = localStorage.getItem('security_failed_attempts')
+            const storedLastFailedAttempt = localStorage.getItem('security_last_failed_attempt')
+
+            if (storedFailedAttempts && storedLastFailedAttempt) {
+                this.failedAttempts = parseInt(storedFailedAttempts, 10) || 0
+                this.lastFailedAttempt = parseInt(storedLastFailedAttempt, 10) || 0
+
+                // If the lockout period has expired, reset the failed attempts
+                if (!this.isLockedOut() && this.failedAttempts >= this.MAX_FAILED_ATTEMPTS) {
+                    this.resetFailedAttempts()
+                }
+            }
+        } catch (error) {
+            console.error('Failed to load security state from storage:', error)
+            this.resetFailedAttempts()
+        }
     }
 }
 

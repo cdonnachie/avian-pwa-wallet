@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Lock, Fingerprint, Eye, EyeOff, Shield, Clock, Wallet } from 'lucide-react'
 import { securityService } from '@/services/SecurityService'
 import { StorageService } from '@/services/StorageService'
@@ -24,12 +24,38 @@ export default function SecurityLockScreen({ onUnlock, lockReason }: SecurityLoc
     const [biometricAvailable, setBiometricAvailable] = useState(false)
     const [activeWallet, setActiveWallet] = useState<ActiveWalletInfo | null>(null)
     const [error, setError] = useState('')
+    const [isLockedOut, setIsLockedOut] = useState(false)
+    const [lockoutTimeRemaining, setLockoutTimeRemaining] = useState(0)
     const { showToast } = useToast()
+
+    const checkLockoutStatus = useCallback(() => {
+        const lockedOut = securityService.isLockedOut()
+        const timeRemaining = securityService.getRemainingLockoutTime()
+
+        setIsLockedOut(lockedOut)
+        setLockoutTimeRemaining(timeRemaining)
+
+        if (lockedOut) {
+            setError(`Too many failed attempts. Please wait ${Math.ceil(timeRemaining / 1000)} seconds before trying again.`)
+        } else if (error.includes('Too many failed attempts')) {
+            setError('')
+        }
+    }, [error])
 
     useEffect(() => {
         checkBiometricSupport()
         loadActiveWalletInfo()
-    }, [])
+        checkLockoutStatus()
+
+        // Update lockout timer every second if locked out
+        const lockoutInterval = setInterval(() => {
+            if (isLockedOut) {
+                checkLockoutStatus()
+            }
+        }, 1000)
+
+        return () => clearInterval(lockoutInterval)
+    }, [isLockedOut, checkLockoutStatus])
 
     const loadActiveWalletInfo = async () => {
         try {
@@ -52,6 +78,12 @@ export default function SecurityLockScreen({ onUnlock, lockReason }: SecurityLoc
     }
 
     const handlePasswordUnlock = async () => {
+        // Check if currently locked out
+        if (isLockedOut) {
+            setError(`Too many failed attempts. Please wait ${Math.ceil(lockoutTimeRemaining / 1000)} seconds before trying again.`)
+            return
+        }
+
         // If wallet doesn't require a password, unlock immediately
         if (!activeWallet?.isEncrypted) {
             handleUnlockSuccess('No password required for this wallet')
@@ -72,10 +104,18 @@ export default function SecurityLockScreen({ onUnlock, lockReason }: SecurityLoc
                 handleUnlockSuccess('Welcome back!')
             } else {
                 setError('Invalid password')
+                // Check lockout status after failed attempt
+                checkLockoutStatus()
             }
-        } catch (error) {
-            setError('Failed to unlock wallet')
-            console.error('Unlock error:', error)
+        } catch (error: any) {
+            // Handle lockout error specifically
+            if (error.message && error.message.includes('Too many failed attempts')) {
+                setError(error.message)
+                checkLockoutStatus()
+            } else {
+                setError('Failed to unlock wallet')
+                console.error('Unlock error:', error)
+            }
         } finally {
             setIsLoading(false)
         }
@@ -93,6 +133,12 @@ export default function SecurityLockScreen({ onUnlock, lockReason }: SecurityLoc
     const handleBiometricUnlock = async () => {
         if (!biometricAvailable) return
 
+        // Check if currently locked out
+        if (isLockedOut) {
+            setError(`Too many failed attempts. Please wait ${Math.ceil(lockoutTimeRemaining / 1000)} seconds before trying again.`)
+            return
+        }
+
         setIsLoading(true)
         setError('')
 
@@ -102,10 +148,18 @@ export default function SecurityLockScreen({ onUnlock, lockReason }: SecurityLoc
                 handleUnlockSuccess('Biometric authentication successful')
             } else {
                 setError('Biometric authentication failed')
+                // Check lockout status after failed attempt
+                checkLockoutStatus()
             }
-        } catch (error) {
-            setError('Biometric authentication failed')
-            console.error('Biometric unlock error:', error)
+        } catch (error: any) {
+            // Handle lockout error specifically
+            if (error.message && error.message.includes('Too many failed attempts')) {
+                setError(error.message)
+                checkLockoutStatus()
+            } else {
+                setError('Biometric authentication failed')
+                console.error('Biometric unlock error:', error)
+            }
         } finally {
             setIsLoading(false)
         }
@@ -186,11 +240,13 @@ export default function SecurityLockScreen({ onUnlock, lockReason }: SecurityLoc
                     <div className="mb-6">
                         <button
                             onClick={handleBiometricUnlock}
-                            disabled={isLoading}
+                            disabled={isLoading || isLockedOut}
                             className="w-full flex items-center justify-center px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg transition-colors"
                         >
                             <Fingerprint className="w-5 h-5 mr-2" />
-                            {isLoading ? 'Authenticating...' : 'Unlock with Biometric'}
+                            {isLoading ? 'Authenticating...' :
+                                isLockedOut ? `Locked (${Math.ceil(lockoutTimeRemaining / 1000)}s)` :
+                                    'Unlock with Biometric'}
                         </button>
 
                         <div className="flex items-center my-4">
@@ -213,10 +269,10 @@ export default function SecurityLockScreen({ onUnlock, lockReason }: SecurityLoc
                                     type={showPassword ? 'text' : 'password'}
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && handlePasswordUnlock()}
+                                    onKeyDown={(e) => e.key === 'Enter' && !isLockedOut && handlePasswordUnlock()}
                                     placeholder="Enter your wallet password"
                                     className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white pr-12"
-                                    disabled={isLoading}
+                                    disabled={isLoading || isLockedOut}
                                 />
                                 <button
                                     type="button"
@@ -236,11 +292,13 @@ export default function SecurityLockScreen({ onUnlock, lockReason }: SecurityLoc
 
                         <button
                             onClick={handlePasswordUnlock}
-                            disabled={isLoading || (activeWallet?.isEncrypted && !password)}
+                            disabled={isLoading || isLockedOut || (activeWallet?.isEncrypted && !password)}
                             className="w-full px-4 py-3 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-lg transition-colors flex items-center justify-center"
                         >
                             <Lock className="w-5 h-5 mr-2" />
-                            {isLoading ? 'Unlocking...' : 'Unlock Wallet'}
+                            {isLoading ? 'Unlocking...' :
+                                isLockedOut ? `Locked (${Math.ceil(lockoutTimeRemaining / 1000)}s)` :
+                                    'Unlock Wallet'}
                         </button>
                     </div>
                 ) : (
@@ -268,11 +326,13 @@ export default function SecurityLockScreen({ onUnlock, lockReason }: SecurityLoc
 
                         <button
                             onClick={handlePasswordUnlock}
-                            disabled={isLoading}
+                            disabled={isLoading || isLockedOut}
                             className="w-full px-4 py-3 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-lg transition-colors flex items-center justify-center"
                         >
                             <Lock className="w-5 h-5 mr-2" />
-                            {isLoading ? 'Unlocking...' : 'Unlock Wallet'}
+                            {isLoading ? 'Unlocking...' :
+                                isLockedOut ? `Locked (${Math.ceil(lockoutTimeRemaining / 1000)}s)` :
+                                    'Unlock Wallet'}
                         </button>
                     </div>
                 )}

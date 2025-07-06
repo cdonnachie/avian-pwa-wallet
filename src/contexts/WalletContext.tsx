@@ -5,6 +5,8 @@ import { WalletService } from '@/services/WalletService'
 import { ElectrumService } from '@/services/ElectrumService'
 import { StorageService } from '@/services/StorageService'
 
+import { CoinSelectionStrategy } from '@/services/UTXOSelectionService'
+
 interface WalletContextType {
     wallet: WalletService | null
     electrum: ElectrumService | null
@@ -18,7 +20,17 @@ interface WalletContextType {
     generateWallet: (password?: string, useMnemonic?: boolean, passphrase?: string) => Promise<void>
     restoreWallet: (privateKey: string, password?: string) => Promise<void>
     restoreWalletFromMnemonic: (mnemonic: string, password?: string, passphrase?: string) => Promise<void>
-    sendTransaction: (toAddress: string, amount: number, password?: string) => Promise<string>
+    sendTransaction: (
+        toAddress: string,
+        amount: number,
+        password?: string,
+        options?: {
+            strategy?: CoinSelectionStrategy
+            feeRate?: number
+            maxInputs?: number
+            minConfirmations?: number
+        }
+    ) => Promise<string>
     updateBalance: () => Promise<void>
     refreshTransactionHistory: () => Promise<void>
     cleanupMisclassifiedTransactions: () => Promise<number>
@@ -263,12 +275,22 @@ export function WalletProvider({ children }: WalletProviderProps) {
         }
     }
 
-    const sendTransaction = async (toAddress: string, amount: number, password?: string): Promise<string> => {
+    const sendTransaction = async (
+        toAddress: string,
+        amount: number,
+        password?: string,
+        options?: {
+            strategy?: CoinSelectionStrategy
+            feeRate?: number
+            maxInputs?: number
+            minConfirmations?: number
+        }
+    ): Promise<string> => {
         if (!wallet) throw new Error('Wallet service not initialized')
 
         try {
             setIsLoading(true)
-            const txId = await wallet.sendTransaction(toAddress, amount, password)
+            const txId = await wallet.sendTransaction(toAddress, amount, password, options)
             await updateBalance()
             return txId
         } catch (error) {

@@ -28,6 +28,12 @@ import * as CryptoJS from 'crypto-js'
 import bs58check from 'bs58check'
 import { ElectrumService } from './ElectrumService'
 import { StorageService } from './StorageService'
+import {
+    UTXOSelectionService,
+    EnhancedUTXO,
+    CoinSelectionStrategy,
+    UTXOSelectionOptions
+} from './UTXOSelectionService'
 
 // Initialize ECPair and BIP32 with secp256k1
 const ECPair = ECPairFactory(ecc)
@@ -259,7 +265,13 @@ export class WalletService {
     async sendTransaction(
         toAddress: string,
         amount: number,
-        password?: string
+        password?: string,
+        options?: {
+            strategy?: CoinSelectionStrategy
+            feeRate?: number
+            maxInputs?: number
+            minConfirmations?: number
+        }
     ): Promise<string> {
         try {
             // Get current wallet data
@@ -291,43 +303,64 @@ export class WalletService {
             const fromAddress = activeWallet.address
 
             // Get UTXOs for the address
-            const utxos = await this.electrum.getUTXOs(fromAddress)
-            if (utxos.length === 0) {
+            const rawUTXOs = await this.electrum.getUTXOs(fromAddress)
+            if (rawUTXOs.length === 0) {
                 throw new Error('No unspent transaction outputs found')
             }
 
-            // Calculate total available amount
-            const totalAvailable = utxos.reduce((sum, utxo) => sum + utxo.value, 0)
+            // Enhance UTXOs with additional metadata
+            const currentBlockHeight = await this.electrum.getCurrentBlockHeight()
+            const enhancedUTXOs: EnhancedUTXO[] = rawUTXOs.map(utxo => ({
+                ...utxo,
+                confirmations: utxo.height ? Math.max(0, currentBlockHeight - utxo.height + 1) : 0,
+                isConfirmed: utxo.height ? (currentBlockHeight - utxo.height + 1) >= 1 : false,
+                ageInBlocks: utxo.height ? currentBlockHeight - utxo.height + 1 : 0,
+                address: fromAddress
+            }))
 
-            // Define transaction fee (0.0001 AVN = 10000 satoshis)
-            const fee = 10000
-            const totalRequired = amount + fee
+            // Calculate total available amount
+            const totalAvailable = enhancedUTXOs.reduce((sum, utxo) => sum + utxo.value, 0)
+
+            // Define transaction fee and options
+            const feeRate = options?.feeRate || 10000 // 0.0001 AVN = 10000 satoshis
+            const totalRequired = amount + feeRate
 
             if (totalAvailable < totalRequired) {
                 throw new Error(`Insufficient funds. Required: ${totalRequired} satoshis, Available: ${totalAvailable} satoshis`)
             }
 
+            // Select optimal UTXOs using the selection service
+            const selectionOptions: UTXOSelectionOptions = {
+                strategy: options?.strategy || UTXOSelectionService.getRecommendedStrategy(amount, enhancedUTXOs),
+                targetAmount: amount,
+                feeRate: feeRate,
+                maxInputs: options?.maxInputs || 20,
+                minConfirmations: options?.minConfirmations || 0,
+                allowUnconfirmed: true,
+                includeDust: false
+            }
+
+            const selectionResult = UTXOSelectionService.selectUTXOs(enhancedUTXOs, selectionOptions)
+
+            if (!selectionResult) {
+                throw new Error('Unable to select suitable UTXOs for transaction')
+            }
+
+            const { selectedUTXOs, change } = selectionResult
+
+            console.log(`UTXO Selection: Used ${selectionResult.strategyUsed} strategy, selected ${selectedUTXOs.length} UTXOs, efficiency: ${(selectionResult.efficiency * 100).toFixed(1)}%`)
+
             // Build transaction using PSBT
             const psbt = new bitcoin.Psbt({ network: avianNetwork })
 
-            // Add inputs
-            let inputTotal = 0
-            const usedUtxos = []
-
-            for (const utxo of utxos) {
-                if (inputTotal >= totalRequired) break
-
-                // Get the raw transaction hex (non-verbose)
+            // Add inputs from selected UTXOs
+            for (const utxo of selectedUTXOs) {
                 const txHex = await this.electrum.getTransaction(utxo.txid, false)
-
                 psbt.addInput({
                     hash: utxo.txid,
                     index: utxo.vout,
                     nonWitnessUtxo: Buffer.from(txHex, 'hex'),
                 })
-
-                inputTotal += utxo.value
-                usedUtxos.push(utxo)
             }
 
             // Add output for recipient
@@ -337,7 +370,6 @@ export class WalletService {
             })
 
             // Add change output if needed
-            const change = inputTotal - totalRequired
             if (change > 0) {
                 psbt.addOutput({
                     address: fromAddress,
@@ -360,7 +392,7 @@ export class WalletService {
             // doesn't natively support custom sighash types
             try {
                 // First, try the standard approach with sighash type array
-                for (let i = 0; i < usedUtxos.length; i++) {
+                for (let i = 0; i < selectedUTXOs.length; i++) {
                     // Pass the hashType in the sighashTypes array to whitelist it
                     psbt.signInput(i, signer, [hashType])
                 }
@@ -372,7 +404,7 @@ export class WalletService {
                 tx.locktime = 0
 
                 // Add all inputs
-                for (const u of usedUtxos) {
+                for (const u of selectedUTXOs) {
                     tx.addInput(Buffer.from(u.txid, 'hex').reverse(), u.vout)
                 }
 
@@ -383,8 +415,8 @@ export class WalletService {
                 }
 
                 // Sign each input manually with fork ID
-                for (let i = 0; i < usedUtxos.length; i++) {
-                    const utxo = usedUtxos[i]
+                for (let i = 0; i < selectedUTXOs.length; i++) {
+                    const utxo = selectedUTXOs[i]
                     const prevTxHex = await this.electrum.getTransaction(utxo.txid, false)
                     const prevTx = bitcoin.Transaction.fromHex(prevTxHex)
 
