@@ -52,8 +52,6 @@ export interface LegacyWalletData {
     mnemonic?: string
 }
 
-// We now use bitcoinjs-lib's ECPair directly with Avian network parameters
-
 // Avian network configuration
 const avianNetwork: bitcoin.Network = {
     messagePrefix: '\x19Avian Signed Message:\n',
@@ -74,7 +72,7 @@ export class WalletService {
         this.electrum = electrumService || new ElectrumService()
     }
 
-    async generateWallet(password?: string, useMnemonic: boolean = true): Promise<LegacyWalletData> {
+    async generateWallet(password?: string, useMnemonic: boolean = true, passphrase?: string): Promise<LegacyWalletData> {
         try {
 
             let keyPair: any
@@ -84,8 +82,8 @@ export class WalletService {
                 // Generate BIP39 mnemonic
                 mnemonic = bip39.generateMnemonic(128) // 12 words
 
-                // Derive seed from mnemonic
-                const seed = await bip39.mnemonicToSeed(mnemonic)
+                // Derive seed from mnemonic with optional passphrase (BIP39 25th word)
+                const seed = await bip39.mnemonicToSeed(mnemonic, passphrase || '')
 
                 // Create HD wallet root
                 const root = bip32.fromSeed(seed, avianNetwork)
@@ -733,15 +731,15 @@ export class WalletService {
         }
     }
 
-    async generateWalletFromMnemonic(mnemonic: string, password?: string): Promise<LegacyWalletData> {
+    async generateWalletFromMnemonic(mnemonic: string, password?: string, passphrase?: string): Promise<LegacyWalletData> {
         try {
             // Validate mnemonic
             if (!bip39.validateMnemonic(mnemonic)) {
                 throw new Error('Invalid BIP39 mnemonic phrase')
             }
 
-            // Derive seed from mnemonic
-            const seed = await bip39.mnemonicToSeed(mnemonic)
+            // Derive seed from mnemonic with optional passphrase (BIP39 25th word)
+            const seed = await bip39.mnemonicToSeed(mnemonic, passphrase || '')
 
             // Create HD wallet root
             const root = bip32.fromSeed(seed, avianNetwork)

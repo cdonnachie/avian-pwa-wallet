@@ -7,9 +7,9 @@ console.log("📁 Environment: development");
 console.log("🚀 PWA: enabled");
 console.log("");
 
-// Start Next.js development server
+// Start Next.js development server with Turbopack
 const { spawn } = require("child_process");
-const nextDev = spawn("npx", ["next", "dev"], {
+const nextDev = spawn("npx", ["next", "dev", "--turbo"], {
   stdio: "inherit",
   env: { ...process.env, ENABLE_PWA: "true" },
 });

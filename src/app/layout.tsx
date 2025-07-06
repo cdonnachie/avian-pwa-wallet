@@ -2,8 +2,9 @@ import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { WalletProvider } from '@/contexts/WalletContext'
+import { SecurityProvider } from '@/contexts/SecurityContext'
+import { TermsProvider } from '@/contexts/TermsContext'
 import { ToastProvider } from '@/components/Toast'
-import StorageTestPanel from '@/components/StorageTestPanel'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -70,10 +71,13 @@ export default function RootLayout({
             </head>
             <body className={inter.className}>
                 <ToastProvider>
-                    <WalletProvider>
-                        {children}
-                        <StorageTestPanel />
-                    </WalletProvider>
+                    <TermsProvider>
+                        <SecurityProvider>
+                            <WalletProvider>
+                                {children}
+                            </WalletProvider>
+                        </SecurityProvider>
+                    </TermsProvider>
                 </ToastProvider>
             </body>
         </html>

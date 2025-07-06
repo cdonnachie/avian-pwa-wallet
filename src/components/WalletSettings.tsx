@@ -1,12 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { Settings, Download, Lock, Unlock, FileText, Wallet, TestTube, Database } from 'lucide-react'
+import { Settings, Download, Lock, Unlock, FileText, Wallet, Database, Shield } from 'lucide-react'
 import { useWallet } from '@/contexts/WalletContext'
+import { useSecurity } from '@/contexts/SecurityContext'
 import MnemonicModal from './MnemonicModal'
 import { WalletManager } from './WalletManager'
 import BackupModal from './BackupModal'
-import { addSampleTransactions, clearAllTransactions } from '@/utils/transaction-test'
+import SecuritySettingsPanel from './SecuritySettingsPanel'
 
 export default function WalletSettings() {
     const {
@@ -15,17 +16,16 @@ export default function WalletSettings() {
         decryptWallet,
         isEncrypted,
         address,
-        reloadActiveWallet,
-        cleanupMisclassifiedTransactions,
-        reprocessTransactionHistory,
-        reprocessTransactionHistoryProgressive,
-        processingProgress
+        reloadActiveWallet
     } = useWallet()
+
+    const { lockWallet, isLocked } = useSecurity()
 
     const [showForm, setShowForm] = useState<string | null>(null)
     const [showMnemonicModal, setShowMnemonicModal] = useState(false)
     const [showWalletManager, setShowWalletManager] = useState(false)
     const [showBackupModal, setShowBackupModal] = useState(false)
+    const [showSecuritySettings, setShowSecuritySettings] = useState(false)
     const [mnemonicModalMode, setMnemonicModalMode] = useState<'export' | 'import'>('export')
     const [password, setPassword] = useState('')
     const [newPassword, setNewPassword] = useState('')
@@ -104,96 +104,6 @@ export default function WalletSettings() {
             setTimeout(() => setSuccess(''), 2000)
         } catch (error) {
             setError('Failed to copy to clipboard')
-        }
-    }
-
-    const handleAddSampleTransactions = async () => {
-        if (!address) {
-            setError('No active wallet found')
-            return
-        }
-
-        try {
-            setIsLoading(true)
-            await addSampleTransactions(address)
-            setSuccess('Sample transactions added for testing!')
-        } catch (error) {
-            setError('Failed to add sample transactions')
-        } finally {
-            setIsLoading(false)
-        }
-    }
-
-    const handleClearTransactions = async () => {
-        if (!confirm('Are you sure you want to clear all transaction history?')) {
-            return
-        }
-
-        try {
-            setIsLoading(true)
-            await clearAllTransactions()
-            setSuccess('All transactions cleared!')
-        } catch (error) {
-            setError('Failed to clear transactions')
-        } finally {
-            setIsLoading(false)
-        }
-    }
-
-    const handleCleanupMisclassifiedTransactions = async () => {
-        if (!address) {
-            setError('No active wallet found')
-            return
-        }
-
-        if (!confirm('This will remove "received" transactions that are actually change outputs from your own sent transactions.\n\nFor example, if you sent 4 AVN and received 5.99990000 AVN as change, the change transaction will be removed from your transaction history.\n\nContinue?')) {
-            return
-        }
-
-        try {
-            setIsLoading(true)
-            const cleanedCount = await cleanupMisclassifiedTransactions()
-            setSuccess(`Cleaned up ${cleanedCount} misclassified transactions!`)
-        } catch (error) {
-            setError('Failed to cleanup misclassified transactions')
-        } finally {
-            setIsLoading(false)
-        }
-    }
-
-    const handleReprocessTransactionHistory = async () => {
-        if (!address) {
-            setError('No active wallet found')
-            return
-        }
-
-        if (!confirm('This will clear all existing transaction history and reprocess it from the blockchain with updated classification logic.\n\nThis will properly classify sent vs received transactions and may take a while for wallets with many transactions.\n\nContinue?')) {
-            return
-        }
-
-        try {
-            const processedCount = await reprocessTransactionHistory()
-            setSuccess(`Reprocessed ${processedCount} transactions!`)
-        } catch (error) {
-            setError('Failed to reprocess transaction history')
-        }
-    }
-
-    const handleReprocessTransactionHistoryProgressive = async () => {
-        if (!address) {
-            setError('No active wallet found')
-            return
-        }
-
-        if (!confirm('This will clear all existing transaction history and reprocess it from the blockchain with updated classification logic.\n\nTransactions will appear in the UI as they are processed for real-time progress.\n\nContinue?')) {
-            return
-        }
-
-        try {
-            const processedCount = await reprocessTransactionHistoryProgressive()
-            setSuccess(`Progressively processed ${processedCount} transactions!`)
-        } catch (error) {
-            setError('Failed to progressively process transaction history')
         }
     }
 
@@ -279,6 +189,20 @@ export default function WalletSettings() {
                     </div>
                 </button>
 
+                {/* Security Settings */}
+                <button
+                    onClick={() => setShowSecuritySettings(true)}
+                    className="w-full flex items-center justify-between p-3 bg-purple-50 dark:bg-purple-900 hover:bg-purple-100 dark:hover:bg-purple-800 rounded-lg transition-colors border border-purple-200 dark:border-purple-700"
+                >
+                    <div className="flex items-center">
+                        <Shield className="w-4 h-4 mr-3 text-purple-600 dark:text-purple-400" />
+                        <div className="text-left">
+                            <span className="text-purple-900 dark:text-purple-100 font-medium block">Security Settings</span>
+                            <span className="text-purple-700 dark:text-purple-300 text-xs">Biometric auth, auto-lock, audit log</span>
+                        </div>
+                    </div>
+                </button>
+
                 {/* Encrypt/Decrypt Wallet */}
                 {address && (
                     <button
@@ -298,110 +222,7 @@ export default function WalletSettings() {
                     </button>
                 )}
 
-                {/* Development Test Section */}
-                {address && (
-                    <div className="border-t border-gray-200 dark:border-gray-600 pt-3">
-                        <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Development Tools
-                        </h5>
 
-                        {/* Processing Progress */}
-                        {processingProgress.isProcessing && (
-                            <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-sm font-medium text-blue-900 dark:text-blue-200">
-                                        Processing Transactions...
-                                    </span>
-                                    <span className="text-xs text-blue-700 dark:text-blue-300">
-                                        {processingProgress.processed}/{processingProgress.total}
-                                    </span>
-                                </div>
-                                <div className="w-full bg-blue-200 dark:bg-blue-800 rounded-full h-2 mb-2">
-                                    <div
-                                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                        style={{
-                                            width: processingProgress.total > 0
-                                                ? `${(processingProgress.processed / processingProgress.total) * 100}%`
-                                                : '0%'
-                                        }}
-                                    />
-                                </div>
-                                {processingProgress.currentTx && (
-                                    <div className="text-xs text-blue-600 dark:text-blue-400 font-mono">
-                                        Current: {processingProgress.currentTx.slice(0, 16)}...
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                        <div className="space-y-2">
-                            <button
-                                onClick={handleAddSampleTransactions}
-                                disabled={isLoading || processingProgress.isProcessing}
-                                className="w-full flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-800/30 rounded-lg transition-colors border border-blue-200 dark:border-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                <div className="flex items-center">
-                                    <TestTube className="w-4 h-4 mr-3 text-blue-600 dark:text-blue-400" />
-                                    <span className="text-blue-900 dark:text-blue-100 text-sm">
-                                        Add Sample Transactions
-                                    </span>
-                                </div>
-                            </button>
-                            <button
-                                onClick={handleClearTransactions}
-                                disabled={isLoading || processingProgress.isProcessing}
-                                className="w-full flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-800/30 rounded-lg transition-colors border border-red-200 dark:border-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                <div className="flex items-center">
-                                    <TestTube className="w-4 h-4 mr-3 text-red-600 dark:text-red-400" />
-                                    <span className="text-red-900 dark:text-red-100 text-sm">
-                                        Clear All Transactions
-                                    </span>
-                                </div>
-                            </button>
-                            <button
-                                onClick={handleCleanupMisclassifiedTransactions}
-                                disabled={isLoading || processingProgress.isProcessing}
-                                className="w-full flex items-center justify-between p-3 bg-yellow-50 dark:bg-yellow-900/20 hover:bg-yellow-100 dark:hover:bg-yellow-800/30 rounded-lg transition-colors border border-yellow-200 dark:border-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                <div className="flex items-center">
-                                    <TestTube className="w-4 h-4 mr-3 text-yellow-600 dark:text-yellow-400" />
-                                    <span className="text-yellow-900 dark:text-yellow-100 text-sm">
-                                        Cleanup Misclassified Transactions
-                                    </span>
-                                </div>
-                            </button>
-                            <button
-                                onClick={handleReprocessTransactionHistory}
-                                disabled={isLoading || processingProgress.isProcessing}
-                                className="w-full flex items-center justify-between p-3 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-800/30 rounded-lg transition-colors border border-purple-200 dark:border-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                <div className="flex items-center">
-                                    <TestTube className="w-4 h-4 mr-3 text-purple-600 dark:text-purple-400" />
-                                    <span className="text-purple-900 dark:text-purple-100 text-sm">
-                                        Reprocess Transaction History
-                                    </span>
-                                </div>
-                            </button>
-                            <button
-                                onClick={handleReprocessTransactionHistoryProgressive}
-                                disabled={isLoading || processingProgress.isProcessing}
-                                className="w-full flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-800/30 rounded-lg transition-colors border border-green-200 dark:border-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                <div className="flex items-center">
-                                    <TestTube className="w-4 h-4 mr-3 text-green-600 dark:text-green-400" />
-                                    <span className="text-green-900 dark:text-green-100 text-sm">
-                                        Progressive Reprocess (Real-time UI Updates)
-                                    </span>
-                                </div>
-                            </button>
-                        </div>
-
-                        <div className="mt-3 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded text-xs text-yellow-800 dark:text-yellow-200">
-                            <strong>Note:</strong> Real transaction sending is now enabled via ElectrumX with Avian fork ID (0x40) support.
-                            Test carefully with small amounts first!
-                        </div>
-                    </div>
-                )}
             </div>
 
             {/* Forms */}
@@ -441,10 +262,10 @@ export default function WalletSettings() {
                             </>
                         )}
 
-                        {(showForm === 'export' || showForm === 'decrypt') && (
+                        {(showForm === 'export' || showForm === 'decrypt') && isEncrypted && (
                             <input
                                 type="password"
-                                placeholder="Password (if encrypted)"
+                                placeholder="Enter wallet password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 className="input-field"
@@ -555,6 +376,28 @@ export default function WalletSettings() {
                         setTimeout(() => setError(''), 5000)
                     }}
                 />
+            )}
+
+            {/* Security Settings Modal */}
+            {showSecuritySettings && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
+                        <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Security Settings</h3>
+                            <button
+                                onClick={() => setShowSecuritySettings(false)}
+                                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                            >
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                        <div className="overflow-y-auto max-h-[calc(90vh-80px)]">
+                            <SecuritySettingsPanel />
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     )

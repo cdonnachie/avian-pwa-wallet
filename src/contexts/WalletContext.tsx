@@ -15,9 +15,9 @@ interface WalletContextType {
     isConnected: boolean
     serverInfo: { url: string; servers: any[] }
     processingProgress: { isProcessing: boolean; processed: number; total: number; currentTx?: string }
-    generateWallet: (password?: string, useMnemonic?: boolean) => Promise<void>
+    generateWallet: (password?: string, useMnemonic?: boolean, passphrase?: string) => Promise<void>
     restoreWallet: (privateKey: string, password?: string) => Promise<void>
-    restoreWalletFromMnemonic: (mnemonic: string, password?: string) => Promise<void>
+    restoreWalletFromMnemonic: (mnemonic: string, password?: string, passphrase?: string) => Promise<void>
     sendTransaction: (toAddress: string, amount: number, password?: string) => Promise<string>
     updateBalance: () => Promise<void>
     refreshTransactionHistory: () => Promise<void>
@@ -136,12 +136,12 @@ export function WalletProvider({ children }: WalletProviderProps) {
         initializeWallet()
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-    const generateWallet = async (password?: string, useMnemonic: boolean = true) => {
+    const generateWallet = async (password?: string, useMnemonic: boolean = true, passphrase?: string) => {
         if (!wallet) throw new Error('Wallet service not initialized')
 
         try {
             setIsLoading(true)
-            const newWallet = await wallet.generateWallet(password, useMnemonic)
+            const newWallet = await wallet.generateWallet(password, useMnemonic, passphrase)
             setAddress(newWallet.address)
             setIsEncrypted(!!password)
             setBalance(0)
@@ -221,12 +221,12 @@ export function WalletProvider({ children }: WalletProviderProps) {
         }
     }
 
-    const restoreWalletFromMnemonic = async (mnemonic: string, password?: string) => {
+    const restoreWalletFromMnemonic = async (mnemonic: string, password?: string, passphrase?: string) => {
         if (!wallet) throw new Error('Wallet service not initialized')
 
         try {
             setIsLoading(true)
-            const restoredWallet = await wallet.generateWalletFromMnemonic(mnemonic, password)
+            const restoredWallet = await wallet.generateWalletFromMnemonic(mnemonic, password, passphrase)
             setAddress(restoredWallet.address)
             setIsEncrypted(!!password)
 

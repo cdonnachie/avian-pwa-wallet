@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Eye, EyeOff, Copy, RefreshCw, Key, AlertTriangle } from 'lucide-react'
 import { useWallet } from '@/contexts/WalletContext'
+import { useSecurity } from '@/contexts/SecurityContext'
 import { useToast } from '@/components/Toast'
 
 interface MnemonicModalProps {
@@ -21,6 +22,7 @@ export default function MnemonicModal({ isOpen, onClose, mode }: MnemonicModalPr
     } = useWallet()
 
     const { showToast } = useToast()
+    const { requireAuth } = useSecurity()
 
     const [password, setPassword] = useState('')
     const [mnemonic, setMnemonic] = useState('')
@@ -52,6 +54,13 @@ export default function MnemonicModal({ isOpen, onClose, mode }: MnemonicModalPr
 
     // Export mnemonic functionality
     const handleExportMnemonic = async () => {
+        // Require authentication for sensitive operation
+        const authRequired = await requireAuth()
+        if (!authRequired) {
+            setError('Authentication required for this operation')
+            return
+        }
+
         if (isEncrypted && !password) {
             setError('Password required for encrypted wallet')
             return

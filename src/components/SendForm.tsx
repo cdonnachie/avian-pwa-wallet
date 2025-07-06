@@ -3,12 +3,14 @@
 import { useState } from 'react'
 import { Send, AlertCircle, ExternalLink, BookOpen } from 'lucide-react'
 import { useWallet } from '@/contexts/WalletContext'
+import { useSecurity } from '@/contexts/SecurityContext'
 import { WalletService } from '@/services/WalletService'
 import { StorageService } from '@/services/StorageService'
 import AddressBook from './AddressBook'
 
 export default function SendForm() {
-    const { sendTransaction, balance, isLoading, isConnected } = useWallet()
+    const { sendTransaction, balance, isLoading, isConnected, isEncrypted } = useWallet()
+    const { requireAuth } = useSecurity()
     const [toAddress, setToAddress] = useState('')
     const [amount, setAmount] = useState('')
     const [password, setPassword] = useState('')
@@ -45,6 +47,13 @@ export default function SendForm() {
         setError('')
         setSuccess('')
         setSuccessTxId('')
+
+        // Require authentication for sensitive operation
+        const authRequired = await requireAuth()
+        if (!authRequired) {
+            setError('Authentication required for sending transactions')
+            return
+        }
 
         if (!toAddress || !amount) {
             setError('Please fill in all fields')
@@ -270,20 +279,23 @@ export default function SendForm() {
                     </p>
                 </div>
 
-                <div>
-                    <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Password (if wallet is encrypted)
-                    </label>
-                    <input
-                        type="password"
-                        id="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Enter wallet password"
-                        className="input-field"
-                        disabled={isSending}
-                    />
-                </div>
+                {/* Password field - only show if wallet is encrypted */}
+                {isEncrypted && (
+                    <div>
+                        <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Wallet Password
+                        </label>
+                        <input
+                            type="password"
+                            id="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="Enter wallet password"
+                            className="input-field"
+                            disabled={isSending}
+                        />
+                    </div>
+                )}
 
                 <button
                     type="submit"

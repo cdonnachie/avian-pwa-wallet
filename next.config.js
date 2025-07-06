@@ -34,24 +34,16 @@ const nextConfig = {
   // Optimize for Vercel
   poweredByHeader: false,
   compress: true,
-  // Handle PWA properly
-  webpack: (config, { isServer }) => {
-    // Enable WebAssembly support
-    config.experiments = {
-      ...config.experiments,
-      asyncWebAssembly: true,
-      topLevelAwait: true,
-    };
-
-    if (!isServer) {
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        crypto: false,
-        stream: false,
-        buffer: false,
-      };
-    }
-    return config;
+  // External packages for server components (moved from experimental)
+  serverExternalPackages: ["bitcoinjs-lib", "tiny-secp256k1"],
+  // Turbopack configuration
+  turbopack: {
+    // Configure module resolution for browser compatibility
+    resolveAlias: {
+      // Use browser-compatible versions of Node.js modules
+      buffer: "buffer",
+      process: "process/browser",
+    },
   },
 };
 
