@@ -45,6 +45,51 @@ const nextConfig = {
       process: "process/browser",
     },
   },
+  // Webpack configuration for WebAssembly support
+  webpack: (config, { isServer }) => {
+    // Enable WebAssembly experiments
+    config.experiments = {
+      ...config.experiments,
+      asyncWebAssembly: true,
+      layers: true,
+    };
+
+    // Handle .wasm files
+    config.module.rules.push({
+      test: /\.wasm$/,
+      type: "webassembly/async",
+    });
+
+    // Fallback for Node.js modules in the browser
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        path: false,
+        crypto: false,
+        stream: false,
+        buffer: require.resolve("buffer"),
+        process: require.resolve("process/browser"),
+      };
+
+      // Add buffer polyfill using webpack.ProvidePlugin
+      const webpack = require("webpack");
+      config.plugins.push(
+        new webpack.ProvidePlugin({
+          Buffer: ["buffer", "Buffer"],
+          process: "process/browser",
+        })
+      );
+    }
+
+    // Handle tiny-secp256k1 specifically for better compatibility
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      "tiny-secp256k1": require.resolve("tiny-secp256k1"),
+    };
+
+    return config;
+  },
 };
 
 module.exports = withPWA(nextConfig);

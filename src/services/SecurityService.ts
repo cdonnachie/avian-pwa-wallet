@@ -10,11 +10,28 @@ import {
 import { StorageService } from './StorageService'
 import * as CryptoJS from 'crypto-js'
 import { ECPairFactory } from 'ecpair'
-import * as ecc from 'tiny-secp256k1'
 import * as bitcoin from 'bitcoinjs-lib'
 
-// Initialize ECPair for password validation
-const ECPair = ECPairFactory(ecc)
+// Dynamic import for tiny-secp256k1 to handle WebAssembly loading
+let ecc: any = null
+let ECPair: any = null
+
+// Initialize ECC and ECPair asynchronously
+const initializeECC = async () => {
+    if (ecc && ECPair) return { ecc, ECPair }
+
+    try {
+        // Dynamic import to handle WebAssembly loading
+        const eccModule = await import('tiny-secp256k1')
+        ecc = eccModule as any
+        ECPair = ECPairFactory(ecc)
+        return { ecc, ECPair }
+    } catch (error) {
+        console.warn('Failed to load tiny-secp256k1 WebAssembly module:', error)
+        // Fallback: disable ECC-dependent features
+        return { ecc: null, ECPair: null }
+    }
+}
 
 // Avian network configuration for validation
 const avianNetwork: bitcoin.Network = {
@@ -46,9 +63,17 @@ export class SecurityService {
     private readonly MAX_FAILED_ATTEMPTS = 5
     private readonly LOCKOUT_DURATION = 300000 // 5 minutes in milliseconds
 
+    // Helper function to check if we're in a browser environment
+    private isBrowser(): boolean {
+        return typeof window !== 'undefined' && typeof localStorage !== 'undefined'
+    }
+
     constructor() {
         this.setupActivityTracking()
-        this.loadFailedAttemptsFromStorage()
+        // Only load from storage if in browser environment
+        if (this.isBrowser()) {
+            this.loadFailedAttemptsFromStorage()
+        }
         // Don't call initializeSecurity here - wait for first use
     }
 
@@ -71,12 +96,14 @@ export class SecurityService {
                 this.setupAutoLock(settings.autoLock)
             }
 
-            // Check if we should start in locked state
-            const lastActivity = localStorage.getItem('lastActivity')
-            if (lastActivity && settings.autoLock.enabled) {
-                const timeSinceLastActivity = Date.now() - parseInt(lastActivity)
-                if (timeSinceLastActivity > settings.autoLock.timeout) {
-                    this.lockWallet('timeout')
+            // Check if we should start in locked state (only in browser)
+            if (this.isBrowser()) {
+                const lastActivity = localStorage.getItem('lastActivity')
+                if (lastActivity && settings.autoLock.enabled) {
+                    const timeSinceLastActivity = Date.now() - parseInt(lastActivity)
+                    if (timeSinceLastActivity > settings.autoLock.timeout) {
+                        this.lockWallet('timeout')
+                    }
                 }
             }
 
@@ -225,7 +252,11 @@ export class SecurityService {
 
     updateActivity() {
         this.securityState.lastActivity = Date.now()
-        localStorage.setItem('lastActivity', this.securityState.lastActivity.toString())
+
+        // Only use localStorage in browser environment
+        if (this.isBrowser()) {
+            localStorage.setItem('lastActivity', this.securityState.lastActivity.toString())
+        }
 
         // Reset auto-lock timer
         this.getSecuritySettings().then(settings => {
@@ -354,8 +385,18 @@ export class SecurityService {
                 return false
             }
 
+            // Initialize ECC if not already done
+            const { ECPair: ECPairLib } = await initializeECC()
+
+            if (!ECPairLib) {
+                // If ECC library failed to load, fall back to basic validation
+                console.warn('ECC library not available, using basic WIF validation')
+                // Basic WIF format validation (length and characters)
+                return decrypted.length >= 51 && decrypted.length <= 52 && /^[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]+$/.test(decrypted)
+            }
+
             // Verify the decrypted key is valid WIF format for Avian network
-            ECPair.fromWIF(decrypted, avianNetwork)
+            ECPairLib.fromWIF(decrypted, avianNetwork)
             return true
         } catch (error) {
             // If decryption or WIF parsing fails, password is incorrect
@@ -572,12 +613,14 @@ export class SecurityService {
         this.failedAttempts++
         this.lastFailedAttempt = Date.now()
 
-        // Persist failed attempts to localStorage to survive page refreshes
-        try {
-            localStorage.setItem('security_failed_attempts', this.failedAttempts.toString())
-            localStorage.setItem('security_last_failed_attempt', this.lastFailedAttempt.toString())
-        } catch (error) {
-            console.error('Failed to persist security state:', error)
+        // Persist failed attempts to localStorage to survive page refreshes (browser only)
+        if (this.isBrowser()) {
+            try {
+                localStorage.setItem('security_failed_attempts', this.failedAttempts.toString())
+                localStorage.setItem('security_last_failed_attempt', this.lastFailedAttempt.toString())
+            } catch (error) {
+                console.error('Failed to persist security state:', error)
+            }
         }
     }
 
@@ -585,17 +628,24 @@ export class SecurityService {
         this.failedAttempts = 0
         this.lastFailedAttempt = 0
 
-        // Clear from localStorage
-        try {
-            localStorage.removeItem('security_failed_attempts')
-            localStorage.removeItem('security_last_failed_attempt')
-        } catch (error) {
-            console.error('Failed to clear security state:', error)
+        // Clear from localStorage (browser only)
+        if (this.isBrowser()) {
+            try {
+                localStorage.removeItem('security_failed_attempts')
+                localStorage.removeItem('security_last_failed_attempt')
+            } catch (error) {
+                console.error('Failed to clear security state:', error)
+            }
         }
     }
 
     // Load failed attempts from localStorage on service initialization
     private loadFailedAttemptsFromStorage(): void {
+        // Only access localStorage in browser environment
+        if (!this.isBrowser()) {
+            return
+        }
+
         try {
             const storedFailedAttempts = localStorage.getItem('security_failed_attempts')
             const storedLastFailedAttempt = localStorage.getItem('security_last_failed_attempt')
