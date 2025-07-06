@@ -1,0 +1,49 @@
+{
+  "name": "avian-pwa-wallet",
+  "version": "1.0.0",
+  "description": "Avian cryptocurrency wallet as a Progressive Web App",
+  "scripts": {
+    "dev": "next dev",
+    "dev:https": "npm run ssl:setup && node scripts/https-server.js",
+    "dev:ssl": "npm run ssl:setup && set HTTPS=true&& set ENABLE_PWA=true&& next dev -p 3001",
+    "dev:pwa": "node scripts/dev-pwa.js",
+    "ssl:setup": "node scripts/create-ssl-cert.js",
+    "build": "next build",
+    "start": "next start",
+    "start:https": "set HTTPS=true&& next start -p 3001",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@types/crypto-js": "^4.2.2",
+    "@types/node": "^20",
+    "@types/qrcode": "^1.5.5",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "bip32": "^5.0.0-rc.0",
+    "bip39": "^3.1.0",
+    "bitcoinjs-lib": "^6.1.5",
+    "bs58check": "^4.0.0",
+    "crypto-js": "^4.2.0",
+    "ecpair": "^3.0.0",
+    "eslint": "^8",
+    "eslint-config-next": "^15.3.5",
+    "lucide-react": "^0.525.0",
+    "next": "^15.3.5",
+    "next-pwa": "^5.6.0",
+    "qrcode": "^1.5.3",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "tailwindcss": "^3.4.0",
+    "tiny-secp256k1": "^2.2.4",
+    "typescript": "^5"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@vitejs/plugin-basic-ssl": "^2.1.0",
+    "autoprefixer": "^10.4.21",
+    "cross-env": "^7.0.3",
+    "local-ssl-proxy": "^2.0.5",
+    "postcss": "^8.5.6",
+    "selfsigned": "^2.4.1"
+  }
+}
