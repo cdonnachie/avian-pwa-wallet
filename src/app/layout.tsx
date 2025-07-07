@@ -8,10 +8,8 @@ import { TermsProvider } from '@/contexts/TermsContext'
 import { ToastProvider } from '@/components/Toast'
 import dynamic from 'next/dynamic'
 
-// Import the service worker registrar with no SSR to ensure it only runs on client
 const ServiceWorkerRegistrar = dynamic(
     () => import('@/components/ServiceWorkerRegistrar'),
-    { ssr: false }
 )
 
 const inter = Inter({ subsets: ['latin'] })
