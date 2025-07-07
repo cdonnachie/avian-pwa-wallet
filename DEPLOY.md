@@ -1,8 +1,8 @@
-# Deploying Avian PWA Wallet to Vercel
+# Deploying Avian FlightDeck Wallet to Vercel
 
 ## 🚀 Quick Deploy
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/your-username/avian-pwa-wallet)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/cdonnachie/avian-flightdeck)
 
 ## 📋 Prerequisites
 
@@ -139,4 +139,4 @@ Vercel provides:
 
 - **Vercel Docs**: [vercel.com/docs](https://vercel.com/docs)
 - **Next.js PWA**: [github.com/shadowwalker/next-pwa](https://github.com/shadowwalker/next-pwa)
-- **Avian Network**: [aviancoin.org](https://aviancoin.org)
+- **Avian Network**: [aviancoin.org](https://avn.network)

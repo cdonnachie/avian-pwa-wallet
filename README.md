@@ -40,8 +40,8 @@ A Progressive Web App (PWA) implementation of the Avian cryptocurrency wallet, b
 1. Clone the repository:
 
 ```bash
-git clone <repository-url>
-cd avian-pwa-wallet
+git clone https://github.com/cdonnachie/avian-flightdeck.git
+cd avian-flightdeck
 ```
 
 2. Install dependencies:

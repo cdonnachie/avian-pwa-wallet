@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "name": "avian-pwa-wallet",
+  "name": "avian-flightdeck",
   "builds": [
     {
       "src": "next.config.js",
