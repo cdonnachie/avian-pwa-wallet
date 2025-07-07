@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const withPWA = require("next-pwa")({
-  dest: "public",
-  register: true,
+  dest: "public", // Keep using public directory for compatibility
+  register: false, // We'll handle registration manually for greater control
   skipWaiting: true,
   disable: process.env.NODE_ENV === "development" && !process.env.ENABLE_PWA,
   // Make sure PWA is NEVER disabled in production

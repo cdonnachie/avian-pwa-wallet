@@ -6,6 +6,7 @@ import { WalletProvider } from '@/contexts/WalletContext'
 import { SecurityProvider } from '@/contexts/SecurityContext'
 import { TermsProvider } from '@/contexts/TermsContext'
 import { ToastProvider } from '@/components/Toast'
+import { ServiceWorkerRegistrar } from '@/hooks/useServiceWorker'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -75,6 +76,7 @@ export default function RootLayout({
                     <TermsProvider>
                         <SecurityProvider>
                             <WalletProvider>
+                                <ServiceWorkerRegistrar />
                                 {children}
                             </WalletProvider>
                         </SecurityProvider>
