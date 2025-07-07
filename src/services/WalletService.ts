@@ -351,8 +351,6 @@ export class WalletService {
 
             const { selectedUTXOs, change } = selectionResult
 
-            console.log(`UTXO Selection: Used ${selectionResult.strategyUsed} strategy, selected ${selectedUTXOs.length} UTXOs, efficiency: ${(selectionResult.efficiency * 100).toFixed(1)}%`)
-
             // Build transaction using PSBT
             const psbt = new bitcoin.Psbt({ network: avianNetwork })
 
@@ -1465,6 +1463,11 @@ export class WalletService {
         if (txDetails.vin && txDetails.vin.length > 0) {
             const firstInput = txDetails.vin[0]
 
+            // Skip coinbase transactions
+            if (firstInput.coinbase) {
+                return 'Coinbase'
+            }
+
             // Check for direct address field first (more common in modern ElectrumX)
             if (firstInput.address) {
                 return firstInput.address
@@ -1473,6 +1476,12 @@ export class WalletService {
             // Fallback to scriptSig.addresses for legacy format
             if (firstInput.scriptSig && firstInput.scriptSig.addresses && firstInput.scriptSig.addresses.length > 0) {
                 return firstInput.scriptSig.addresses[0]
+            }
+
+            // If no direct address available, we'd need to look up the previous transaction
+            // This is handled in the classifyTransaction method
+            if (firstInput.txid && firstInput.vout !== undefined) {
+                return 'Unknown (requires lookup)'
             }
         }
         return 'External' // Use a more descriptive placeholder
@@ -1487,97 +1496,164 @@ export class WalletService {
         fromAddress: string,
         toAddress: string
     } | null> {
-        // Check if we have inputs (spending from our address)
-        let hasInputFromUs = false
+        try {
+            // Check if we have inputs (spending from our address)
+            let hasInputFromUs = false
+            let inputAddresses: string[] = []
 
-        if (txDetails.vin) {
-            for (const input of txDetails.vin) {
-                // Check if input has an address field directly
-                if (input.address && (input.address === address || await this.isOurAddress(input.address))) {
-                    hasInputFromUs = true
-                    break
-                }
-                // Also check scriptSig.addresses for legacy format
-                if (input.scriptSig && input.scriptSig.addresses) {
-                    for (const inputAddress of input.scriptSig.addresses) {
-                        if (inputAddress === address || await this.isOurAddress(inputAddress)) {
+            if (txDetails.vin) {
+                for (const input of txDetails.vin) {
+                    // Skip coinbase transactions (no previous output)
+                    if (input.coinbase) {
+                        continue
+                    }
+
+                    // Check if input has an address field directly (some ElectrumX servers provide this)
+                    if (input.address) {
+                        inputAddresses.push(input.address)
+                        if (input.address === address || await this.isOurAddress(input.address)) {
                             hasInputFromUs = true
-                            break
                         }
                     }
-                }
-                if (hasInputFromUs) break
-            }
-        }
-
-        // Check if we have outputs (receiving to our address)
-        let hasOutputToUs = false
-        let totalOutputToUs = 0
-        let totalOutputToOthers = 0
-        let firstOutputToOthers = ''
-
-        if (txDetails.vout) {
-            for (let i = 0; i < txDetails.vout.length; i++) {
-                const output = txDetails.vout[i]
-                if (output.scriptPubKey && output.scriptPubKey.addresses) {
-                    const outputValue = Math.round(output.value * 100000000) // Convert to satoshis
-                    const outputAddresses = output.scriptPubKey.addresses
-
-                    // Check if this output goes to our address or any of our addresses
-                    let isOurOutput = false
-                    for (const outputAddr of outputAddresses) {
-                        if (outputAddr === address || await this.isOurAddress(outputAddr)) {
-                            isOurOutput = true
-                            break
+                    // Also check scriptSig.addresses for legacy format
+                    else if (input.scriptSig && input.scriptSig.addresses) {
+                        for (const inputAddress of input.scriptSig.addresses) {
+                            inputAddresses.push(inputAddress)
+                            if (inputAddress === address || await this.isOurAddress(inputAddress)) {
+                                hasInputFromUs = true
+                            }
                         }
                     }
-
-                    if (isOurOutput) {
-                        hasOutputToUs = true
-                        totalOutputToUs += outputValue
-                    } else {
-                        totalOutputToOthers += outputValue
-                        if (!firstOutputToOthers && outputAddresses.length > 0) {
-                            firstOutputToOthers = outputAddresses[0]
+                    // If no direct address, we need to look up the previous transaction output
+                    else if (input.txid && input.vout !== undefined) {
+                        try {
+                            const prevTxDetails = await this.electrum.getTransaction(input.txid, true)
+                            if (prevTxDetails && prevTxDetails.vout && prevTxDetails.vout[input.vout]) {
+                                const prevOutput = prevTxDetails.vout[input.vout]
+                                if (prevOutput.scriptPubKey && prevOutput.scriptPubKey.addresses) {
+                                    for (const inputAddress of prevOutput.scriptPubKey.addresses) {
+                                        inputAddresses.push(inputAddress)
+                                        if (inputAddress === address || await this.isOurAddress(inputAddress)) {
+                                            hasInputFromUs = true
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (prevTxError) {
+                            console.warn(`Failed to get previous transaction ${input.txid} for input analysis:`, prevTxError)
                         }
                     }
                 }
             }
-        }
 
-        // Classify the transaction
-        if (hasInputFromUs && hasOutputToUs) {
-            // This is our own transaction (we spent and got change back)
-            // The amount we "sent" is the total that went to others
-            if (totalOutputToOthers > 0) {
+            // Check if we have outputs (receiving to our address)
+            let hasOutputToUs = false
+            let totalOutputToUs = 0
+            let totalOutputToOthers = 0
+            let firstOutputToOthers = ''
+
+            if (txDetails.vout) {
+                for (let i = 0; i < txDetails.vout.length; i++) {
+                    const output = txDetails.vout[i]
+                    if (output.scriptPubKey && output.scriptPubKey.addresses) {
+                        // Handle both number and string values for output.value
+                        const outputValue = Math.round(parseFloat(output.value.toString()) * 100000000) // Convert to satoshis
+                        const outputAddresses = output.scriptPubKey.addresses
+
+                        // Check if this output goes to our address or any of our addresses
+                        let isOurOutput = false
+                        let isTargetAddress = false
+                        for (const outputAddr of outputAddresses) {
+                            if (outputAddr === address) {
+                                isTargetAddress = true
+                                isOurOutput = true
+                                break
+                            } else {
+                                const isOurAddr = await this.isOurAddress(outputAddr)
+                                if (isOurAddr) {
+                                    isOurOutput = true
+                                    break
+                                }
+                            }
+                        }
+
+                        if (isTargetAddress) {
+                            // This output goes to the specific address we're analyzing
+                            hasOutputToUs = true
+                            totalOutputToUs += outputValue
+                        } else if (isOurOutput) {
+                            // This output goes to one of our other wallets (like change)
+                            // Don't add to totalOutputToUs since it's not to the target address
+                        } else {
+                            // This output goes to an external address
+                            totalOutputToOthers += outputValue
+                            if (!firstOutputToOthers && outputAddresses.length > 0) {
+                                firstOutputToOthers = outputAddresses[0]
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Classify the transaction
+            if (hasInputFromUs && hasOutputToUs) {
+                // We have both inputs and outputs to us
+                if (totalOutputToOthers > 0) {
+                    // This is a send transaction with change back to us
+                    return {
+                        type: 'send',
+                        amount: totalOutputToOthers,
+                        fromAddress: address,
+                        toAddress: firstOutputToOthers || 'Unknown'
+                    }
+                } else {
+                    // This is a transfer between our own wallets
+                    // Check if the input is from a different wallet than the target address
+                    let inputFromDifferentWallet = false
+                    for (const inputAddr of inputAddresses) {
+                        if (inputAddr !== address && await this.isOurAddress(inputAddr)) {
+                            inputFromDifferentWallet = true
+                            break
+                        }
+                    }
+
+                    if (inputFromDifferentWallet) {
+                        // This is a receive from our other wallet
+                        const senderAddress = inputAddresses.find(inputAddr => inputAddr !== address) || inputAddresses[0]
+                        return {
+                            type: 'receive',
+                            amount: totalOutputToUs,
+                            fromAddress: senderAddress,
+                            toAddress: address
+                        }
+                    }
+                }
+            } else if (hasInputFromUs && !hasOutputToUs) {
+                // This is a send transaction with no change
                 return {
                     type: 'send',
                     amount: totalOutputToOthers,
                     fromAddress: address,
                     toAddress: firstOutputToOthers || 'Unknown'
                 }
+            } else if (!hasInputFromUs && hasOutputToUs) {
+                // This is a true received transaction from external source
+                const senderAddress = inputAddresses.length > 0 ? inputAddresses[0] : this.getSenderAddress(txDetails)
+                return {
+                    type: 'receive',
+                    amount: totalOutputToUs,
+                    fromAddress: senderAddress,
+                    toAddress: address
+                }
             }
-        } else if (hasInputFromUs && !hasOutputToUs) {
-            // This is a send transaction with no change
-            return {
-                type: 'send',
-                amount: totalOutputToOthers,
-                fromAddress: address,
-                toAddress: firstOutputToOthers || 'Unknown'
-            }
-        } else if (!hasInputFromUs && hasOutputToUs) {
-            // This is a true received transaction
-            const senderAddress = this.getSenderAddress(txDetails)
-            return {
-                type: 'receive',
-                amount: totalOutputToUs,
-                fromAddress: senderAddress,
-                toAddress: address
-            }
-        }
 
-        // Transaction doesn't involve our address meaningfully
-        return null
+            // Transaction doesn't involve our address meaningfully
+            return null
+
+        } catch (error) {
+            console.error('Error classifying transaction:', error)
+            return null
+        }
     }
 
     // Utility method to ensure signature is canonical (low-S value)
