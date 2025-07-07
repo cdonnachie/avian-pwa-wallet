@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { StorageService } from '@/services/StorageService'
 import { WalletService } from '@/services/WalletService'
 import { useWallet } from '@/contexts/WalletContext'
@@ -34,24 +34,8 @@ export function TransactionHistory({ isOpen, onClose }: TransactionHistoryProps)
         if (!address) return
 
         try {
-
-
-            // Set up interval to reload transactions from storage during processing
-            const reloadInterval = setInterval(async () => {
-                if (processingProgress.isProcessing) {
-                    const txHistory = await StorageService.getTransactionHistory(address)
-                    const sortedTx = txHistory.sort((a, b) =>
-                        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-                    )
-                    setTransactions(sortedTx)
-                }
-            }, 1000) // Reload every second during processing
-
             // Use the progressive method that updates UI in real-time
             await reprocessTransactionHistoryProgressive()
-
-            // Clear the interval when processing is complete
-            clearInterval(reloadInterval)
 
             // Final reload after processing is complete
             const finalTxHistory = await StorageService.getTransactionHistory(address)
@@ -64,43 +48,41 @@ export function TransactionHistory({ isOpen, onClose }: TransactionHistoryProps)
             console.error('Progressive refresh failed:', error)
             throw error
         }
-    }, [address, reprocessTransactionHistoryProgressive, processingProgress.isProcessing])
+    }, [address, reprocessTransactionHistoryProgressive])
 
     const loadTransactions = useCallback(async () => {
+        if (!address) return
+
         try {
             setIsLoading(true)
 
-            // First, quickly load from local storage to show any existing data
+            // Load from local storage first
             const txHistory = await StorageService.getTransactionHistory(address)
-            // Sort by timestamp descending (newest first)
             const sortedTx = txHistory.sort((a, b) =>
                 new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
             )
             setTransactions(sortedTx)
-            setIsLoading(false) // Stop initial loading once we have local data
+            setIsLoading(false)
 
-
-
-            // If we have an address and aren't currently processing, try to refresh
-            if (address && !processingProgress.isProcessing) {
+            // Only refresh from blockchain if we have no local data
+            if (txHistory.length === 0) {
                 try {
-                    // Use regular refresh instead of progressive for normal loading
                     await refreshTransactionHistory()
-                    // Reload transactions after refresh
+                    // Reload after refresh
                     const updatedTxHistory = await StorageService.getTransactionHistory(address)
                     const updatedSorted = updatedTxHistory.sort((a, b) =>
                         new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
                     )
                     setTransactions(updatedSorted)
                 } catch (refreshError) {
-                    console.warn('Failed to refresh from ElectrumX, using local data:', refreshError)
+                    console.warn('Failed to refresh from blockchain:', refreshError)
                 }
             }
         } catch (error) {
             console.error('Failed to load transaction history:', error)
             setIsLoading(false)
         }
-    }, [address, refreshTransactionHistory, processingProgress.isProcessing])
+    }, [address, refreshTransactionHistory])
 
     useEffect(() => {
         const loadTransactionsEffect = async () => {
@@ -112,6 +94,27 @@ export function TransactionHistory({ isOpen, onClose }: TransactionHistoryProps)
 
         loadTransactionsEffect()
     }, [isOpen, loadTransactions])
+
+    // Separate effect to handle real-time updates during processing
+    useEffect(() => {
+        if (!isOpen || !address || !processingProgress.isProcessing) {
+            return
+        }
+
+        const updateInterval = setInterval(async () => {
+            try {
+                const txHistory = await StorageService.getTransactionHistory(address)
+                const sortedTx = txHistory.sort((a, b) =>
+                    new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+                )
+                setTransactions(sortedTx)
+            } catch (error) {
+                console.error('Error updating transactions during processing:', error)
+            }
+        }, 3000) // Update every 3 seconds during processing
+
+        return () => clearInterval(updateInterval)
+    }, [isOpen, address, processingProgress.isProcessing])
 
     // Reset page when filter changes
     useEffect(() => {

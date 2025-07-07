@@ -13,10 +13,11 @@ import ThemeSwitcher from '@/components/ThemeSwitcher'
 import GradientBackground from '@/components/GradientBackground'
 
 export default function Home() {
-    const { wallet, balance, address, isLoading, processingProgress } = useWallet()
+    const { wallet, balance, address, isLoading, processingProgress, updateBalance } = useWallet()
     const { lockWallet, isLocked } = useSecurity()
     const [activeTab, setActiveTab] = useState<'send' | 'receive' | 'history' | 'settings'>('send')
     const [showTransactionHistory, setShowTransactionHistory] = useState(false)
+    const [isRefreshing, setIsRefreshing] = useState(false)
 
     const formatBalance = (balance: number) => {
         const avnBalance = (balance / 100000000).toFixed(8) // Convert satoshis to AVN
@@ -28,9 +29,23 @@ export default function Home() {
         return `${address.slice(0, 8)}...${address.slice(-8)}`
     }
 
+    const handleRefresh = async () => {
+        try {
+            setIsRefreshing(true)
+            // Update balance without reloading the page
+            if (updateBalance) {
+                await updateBalance()
+            }
+        } catch (error) {
+            console.error('Failed to refresh balance:', error)
+        } finally {
+            setIsRefreshing(false)
+        }
+    }
+
     return (
         <GradientBackground variant="auto">
-            <div className="container mx-auto px-4 py-8">
+            <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
                 <div className="max-w-md mx-auto">
                     {/* Header */}
                     <div className="text-center mb-8 relative">
@@ -72,10 +87,12 @@ export default function Home() {
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="text-lg font-semibold">Balance</h2>
                             <button
-                                onClick={() => window.location.reload()}
-                                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                                onClick={handleRefresh}
+                                disabled={isRefreshing}
+                                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Refresh balance"
                             >
-                                <RefreshCw className="w-4 h-4" />
+                                <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                             </button>
                         </div>
                         <div className="text-3xl font-bold mb-2 flex items-center">

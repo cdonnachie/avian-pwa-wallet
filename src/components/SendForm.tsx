@@ -197,31 +197,31 @@ export default function SendForm() {
     }
 
     return (
-        <div className="p-6">
-            <div className="mb-6">
+        <div className="p-3 sm:p-4 lg:p-6">
+            <div className="mb-3 sm:mb-4 lg:mb-6">
                 {/* Header */}
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between mb-2 sm:mb-3 lg:mb-4">
                     <div className="flex items-center">
-                        <Send className="w-5 h-5 mr-2 text-avian-600" />
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        <Send className="w-5 h-5 mr-2 text-avian-600 flex-shrink-0" />
+                        <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
                             Send AVN
                         </h3>
                     </div>
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                     <button
                         onClick={() => setShowUTXOOverview(true)}
-                        className="flex items-center px-3 py-2 text-sm bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-700 transition-colors"
+                        className="flex items-center px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-700 transition-colors min-w-0 flex-shrink-0"
                         title="View Available UTXOs"
                     >
-                        <Coins className="w-4 h-4 mr-1.5" />
-                        UTXOs
+                        <Coins className="w-4 h-4 mr-1 sm:mr-1.5 flex-shrink-0" />
+                        <span className="truncate">UTXOs</span>
                     </button>
                     <button
                         onClick={() => setShowUTXOSettings(true)}
-                        className={`relative flex items-center px-3 py-2 text-sm rounded-lg border transition-colors ${utxoOptions.strategy !== CoinSelectionStrategy.BEST_FIT ||
+                        className={`relative flex items-center px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg border transition-colors min-w-0 flex-shrink-0 ${utxoOptions.strategy !== CoinSelectionStrategy.BEST_FIT ||
                             utxoOptions.feeRate !== 10000 ||
                             utxoOptions.maxInputs !== 20 ||
                             utxoOptions.minConfirmations !== 0
@@ -230,8 +230,9 @@ export default function SendForm() {
                             }`}
                         title="Advanced Transaction Settings"
                     >
-                        <Settings className="w-4 h-4 mr-1.5" />
-                        Advanced
+                        <Settings className="w-4 h-4 mr-1 sm:mr-1.5 flex-shrink-0" />
+                        <span className="hidden sm:inline">Advanced</span>
+                        <span className="sm:hidden truncate">Adv</span>
                         {(utxoOptions.strategy !== CoinSelectionStrategy.BEST_FIT ||
                             utxoOptions.feeRate !== 10000 ||
                             utxoOptions.maxInputs !== 20 ||
@@ -241,14 +242,15 @@ export default function SendForm() {
                     </button>
                     <button
                         onClick={() => setShowAddressBook(!showAddressBook)}
-                        className={`flex items-center px-3 py-2 text-sm rounded-lg border transition-colors ${showAddressBook
+                        className={`flex items-center px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg border transition-colors min-w-0 flex-shrink-0 ${showAddressBook
                             ? 'bg-avian-100 dark:bg-avian-900/20 text-avian-700 dark:text-avian-300 border-avian-200 dark:border-avian-700'
                             : 'bg-avian-50 dark:bg-avian-900/10 text-avian-600 dark:text-avian-400 hover:bg-avian-100 dark:hover:bg-avian-900/20 border-avian-200 dark:border-avian-700'
                             }`}
                         title="Address Book"
                     >
-                        <BookOpen className="w-4 h-4 mr-1.5" />
-                        Address Book
+                        <BookOpen className="w-4 h-4 mr-1 sm:mr-1.5 flex-shrink-0" />
+                        <span className="hidden sm:inline">Address Book</span>
+                        <span className="sm:hidden truncate">Book</span>
                     </button>
                 </div>
             </div>
@@ -258,12 +260,12 @@ export default function SendForm() {
                 utxoOptions.feeRate !== 10000 ||
                 utxoOptions.maxInputs !== 20 ||
                 utxoOptions.minConfirmations !== 0) && (
-                    <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
-                        <div className="flex items-center justify-between">
+                    <div className="mb-3 sm:mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                             <div className="flex items-center">
-                                <Settings className="w-4 h-4 mr-2 text-blue-600 dark:text-blue-400" />
+                                <Settings className="w-4 h-4 mr-2 text-blue-600 dark:text-blue-400 flex-shrink-0" />
                                 <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                                    Custom Transaction Settings Active
+                                    Custom Settings Active
                                 </span>
                             </div>
                             <div className="flex items-center gap-2">
@@ -300,7 +302,7 @@ export default function SendForm() {
 
             {/* Address Book */}
             {showAddressBook && (
-                <div className="mb-6 p-4 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700">
+                <div className="mb-3 sm:mb-4 lg:mb-6 p-3 sm:p-4 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700">
                     <AddressBook
                         onSelectAddress={handleSelectAddress}
                         currentAddress={toAddress}
@@ -309,14 +311,14 @@ export default function SendForm() {
             )}
 
             {error && (
-                <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded-lg flex items-center text-red-700">
-                    <AlertCircle className="w-4 h-4 mr-2" />
-                    {error}
+                <div className="mb-3 sm:mb-4 p-3 bg-red-100 border border-red-300 rounded-lg flex items-start text-red-700">
+                    <AlertCircle className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
+                    <span className="text-sm">{error}</span>
                 </div>
             )}
 
             {success && (
-                <div className="mb-4 p-3 bg-green-100 border border-green-300 rounded-lg text-green-700 text-sm">
+                <div className="mb-3 sm:mb-4 p-3 bg-green-100 border border-green-300 rounded-lg text-green-700 text-sm">
                     <div className="font-medium mb-2">{success}</div>
                     {successTxId && (
                         <div className="space-y-2">
@@ -341,9 +343,9 @@ export default function SendForm() {
                 </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
                 <div>
-                    <label htmlFor="toAddress" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label htmlFor="toAddress" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                         To Address
                     </label>
                     <input
@@ -352,13 +354,13 @@ export default function SendForm() {
                         value={toAddress}
                         onChange={(e) => setToAddress(e.target.value)}
                         placeholder="Enter Avian address (R...)"
-                        className="input-field"
+                        className="input-field text-sm"
                         disabled={isSending}
                     />
                 </div>
 
                 <div>
-                    <label htmlFor="amount" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label htmlFor="amount" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                         Amount (AVN)
                     </label>
                     <div className="relative">
@@ -370,22 +372,22 @@ export default function SendForm() {
                             placeholder="0.00000000"
                             step="0.00000001"
                             min="0"
-                            className="input-field pr-16"
+                            className="input-field pr-12 text-sm"
                             disabled={isSending}
                         />
                         <button
                             type="button"
                             onClick={() => setAmount(maxAmount.toString())}
-                            className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs text-avian-600 hover:text-avian-700 disabled:text-gray-400 disabled:cursor-not-allowed"
+                            className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs text-avian-600 hover:text-avian-700 disabled:text-gray-400 disabled:cursor-not-allowed px-1 py-0.5 rounded"
                             disabled={isSending || maxAmount <= 0}
                         >
                             MAX
                         </button>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-gray-500 mt-1 leading-relaxed">
                         Fee: 0.0001 AVN | Max sendable: {maxAmount.toFixed(8)} AVN
                         {maxAmount <= 0 && (
-                            <span className="text-red-500 ml-2">(Insufficient funds for fee)</span>
+                            <span className="text-red-500 block sm:inline sm:ml-2">(Insufficient funds for fee)</span>
                         )}
                     </p>
                 </div>
@@ -393,7 +395,7 @@ export default function SendForm() {
                 {/* Password field - only show if wallet is encrypted */}
                 {isEncrypted && (
                     <div>
-                        <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                             Wallet Password
                         </label>
                         <input
@@ -402,7 +404,7 @@ export default function SendForm() {
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             placeholder="Enter wallet password"
-                            className="input-field"
+                            className="input-field text-sm"
                             disabled={isSending}
                         />
                     </div>
@@ -411,7 +413,7 @@ export default function SendForm() {
                 <button
                     type="submit"
                     disabled={isSending || isLoading}
-                    className="w-full button-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full button-primary disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base py-3 sm:py-2.5"
                 >
                     {isSending ? 'Sending...' : 'Send Transaction'}
                 </button>
@@ -419,22 +421,24 @@ export default function SendForm() {
 
             {/* Save Address Prompt */}
             {askToSaveAddress && (
-                <div className="mt-4 p-4 bg-yellow-100 border border-yellow-300 rounded-lg text-yellow-700 text-sm">
-                    <div className="font-medium mb-2">
-                        Do you want to save this address to your address book?
+                <div className="mt-3 sm:mt-4 p-3 sm:p-4 bg-yellow-100 border border-yellow-300 rounded-lg text-yellow-700 text-sm">
+                    <div className="font-medium mb-3">
+                        Save this address to your address book?
                     </div>
-                    <button
-                        onClick={() => handleSaveAddressFromTransaction('Untitled')}
-                        className="mr-2 px-3 py-1 text-xs bg-green-500 hover:bg-green-600 text-white rounded-lg"
-                    >
-                        Save Address
-                    </button>
-                    <button
-                        onClick={() => setAskToSaveAddress(false)}
-                        className="px-3 py-1 text-xs bg-red-500 hover:bg-red-600 text-white rounded-lg"
-                    >
-                        No, Thanks
-                    </button>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                        <button
+                            onClick={() => handleSaveAddressFromTransaction('Untitled')}
+                            className="px-3 py-2.5 sm:py-2 text-sm bg-green-500 hover:bg-green-600 text-white rounded-lg font-medium transition-colors"
+                        >
+                            Save Address
+                        </button>
+                        <button
+                            onClick={() => setAskToSaveAddress(false)}
+                            className="px-3 py-2.5 sm:py-2 text-sm bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-colors"
+                        >
+                            No, Thanks
+                        </button>
+                    </div>
                 </div>
             )}
 
