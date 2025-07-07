@@ -4,8 +4,8 @@ const withPWA = require("next-pwa")({
   register: false, // We'll handle registration manually for greater control
   skipWaiting: true,
   disable: process.env.NODE_ENV === "development" && !process.env.ENABLE_PWA,
-  // Make sure PWA is NEVER disabled in production
-  disableInDev: true,
+  // Configure logging
+  disableDevLogs: process.env.NODE_ENV === "production",
   runtimeCaching: [
     {
       // cache any .wasm artifact

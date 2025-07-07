@@ -5,6 +5,15 @@ import { useEffect, useState } from 'react';
 // Create a file-level variable to prevent multiple registrations
 let hasRegistered = false;
 
+// Define the window.workbox type for TypeScript
+declare global {
+    interface Window {
+        workbox?: {
+            register: () => Promise<void>;
+        };
+    }
+}
+
 /**
  * Hook to manage service worker registration
  * Returns the registration status and any errors
@@ -25,25 +34,49 @@ export function useServiceWorker() {
         const registerServiceWorker = async () => {
             setIsRegistering(true);
             try {
-                const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-                setRegistration(reg);
-                console.log('Service worker registered successfully:', reg);
+                let currentRegistration: ServiceWorkerRegistration | null = null;
 
-                // Handle updates
-                reg.onupdatefound = () => {
-                    const installingWorker = reg.installing;
-                    if (installingWorker) {
-                        installingWorker.onstatechange = () => {
-                            if (installingWorker.state === 'installed') {
-                                if (navigator.serviceWorker.controller) {
-                                    console.log('New service worker is installed, but waiting to activate');
-                                } else {
-                                    console.log('Service worker installed for the first time');
-                                }
-                            }
-                        };
+                // Try to use window.workbox if available (next-pwa provides this)
+                if (window.workbox) {
+                    console.log('Using Workbox to register service worker');
+                    await window.workbox.register();
+
+                    // Get the registration after it's complete
+                    const regs = await navigator.serviceWorker.getRegistrations();
+                    currentRegistration = regs.find(r =>
+                        r.scope === window.location.origin + '/' ||
+                        r.scope === window.location.origin
+                    ) || null;
+
+                    if (currentRegistration) {
+                        console.log('Service worker registered via Workbox:', currentRegistration);
                     }
-                };
+                } else {
+                    // Fallback to manual registration
+                    currentRegistration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+                    console.log('Service worker registered manually:', currentRegistration);
+                }
+
+                // Set the registration state
+                if (currentRegistration) {
+                    setRegistration(currentRegistration);
+
+                    // Set up event handlers for future updates
+                    currentRegistration.onupdatefound = () => {
+                        const installingWorker = currentRegistration?.installing;
+                        if (installingWorker) {
+                            installingWorker.onstatechange = () => {
+                                if (installingWorker.state === 'installed') {
+                                    if (navigator.serviceWorker.controller) {
+                                        console.log('New service worker is installed, but waiting to activate');
+                                    } else {
+                                        console.log('Service worker installed for the first time');
+                                    }
+                                }
+                            };
+                        }
+                    };
+                }
             } catch (err: any) {
                 setError(err);
                 console.error('Service worker registration failed:', err);
