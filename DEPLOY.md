@@ -90,12 +90,7 @@ npm run start
 
 Before production deployment:
 
-1. **Disable Storage Test Panel**:
-
-   - Remove `<StorageTestPanel />` from `layout.tsx`
-   - Or ensure `NODE_ENV=production` hides it
-
-2. **Security Review**:
+1. **Security Review**:
    - Verify all ElectrumX connections use WSS (secure WebSocket)
    - Test offline functionality
    - Verify PWA install flow

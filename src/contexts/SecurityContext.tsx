@@ -61,18 +61,12 @@ export function SecurityProvider({ children }: SecurityProviderProps) {
     }
 
     const unlockWallet = async (password?: string, useBiometric?: boolean) => {
-        console.log('Attempting to unlock wallet with password:', password, 'and useBiometric:', useBiometric)
         if (useBiometric) {
             // Get the biometric authentication result directly to access the wallet password
             const biometricAvailable = await securityService.isBiometricAuthAvailable()
-            console.log('Biometric available:', biometricAvailable)
             if (biometricAvailable) {
                 const biometricResult = await securityService.authenticateWithBiometric()
-                console.log('Biometric authentication result:', biometricResult)
                 if (biometricResult.success) {
-                    console.log('Biometric authentication successful:', biometricResult)
-                    console.log('Storing wallet password from biometric auth:', biometricResult.walletPassword)
-                    console.log('Setting wasBiometricAuth to true')
                     setWasBiometricAuth(true)
                     setStoredWalletPassword(biometricResult.walletPassword)
                     setIsLocked(false)
@@ -83,7 +77,6 @@ export function SecurityProvider({ children }: SecurityProviderProps) {
             return false
         } else {
             const success = await securityService.unlockWallet(password, false)
-            console.log('Unlocking wallet with password:', password)
             if (success) {
                 setIsLocked(false)
                 setWasBiometricAuth(false)
@@ -119,11 +112,14 @@ export function SecurityProvider({ children }: SecurityProviderProps) {
                         if (biometricResult.success && biometricResult.walletPassword) {
                             setWasBiometricAuth(true)
                             setStoredWalletPassword(biometricResult.walletPassword)
+                        } else if (biometricResult.success) {
+                            console.warn('Biometric auth successful but no password returned!')
                         }
 
+                        // Always include stored password as fallback if available
                         return {
                             success: biometricResult.success,
-                            password: biometricResult.walletPassword
+                            password: biometricResult.walletPassword || storedWalletPassword
                         }
                     } else {
                         console.warn('Biometrics required but not available')

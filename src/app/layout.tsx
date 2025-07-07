@@ -6,7 +6,6 @@ import { WalletProvider } from '@/contexts/WalletContext'
 import { SecurityProvider } from '@/contexts/SecurityContext'
 import { TermsProvider } from '@/contexts/TermsContext'
 import { ToastProvider } from '@/components/Toast'
-import { ServiceWorkerRegistrar } from '@/hooks/useServiceWorker'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -37,6 +36,7 @@ export default function RootLayout({
             <head>
                 <link rel="icon" href="/icons/icon-192x192.png" />
                 <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+                <meta name="mobile-web-app-capable" content="yes" />
                 <meta name="apple-mobile-web-app-capable" content="yes" />
                 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
                 <meta name="apple-mobile-web-app-title" content="Avian FlightDeck" />
@@ -76,7 +76,6 @@ export default function RootLayout({
                     <TermsProvider>
                         <SecurityProvider>
                             <WalletProvider>
-                                <ServiceWorkerRegistrar />
                                 {children}
                             </WalletProvider>
                         </SecurityProvider>

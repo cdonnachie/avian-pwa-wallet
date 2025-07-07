@@ -42,7 +42,6 @@ export class TermsService {
                 [this.STORAGE_KEY]: termsAcceptance
             })
 
-            console.log('Terms accepted for version:', this.CURRENT_VERSION)
         } catch (error) {
             console.error('Failed to accept terms:', error)
             throw error

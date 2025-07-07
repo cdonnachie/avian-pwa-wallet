@@ -90,19 +90,19 @@ export default function SendForm() {
             return
         }
 
-        // Update UI state based on successful biometric authentication
+        // First, ensure we set the password correctly from biometric auth
         if (authResult.password) {
-            setUsingBiometricAuth(true)
+            // Using direct password from auth result
+            setPassword(authResult.password);
+            setUsingBiometricAuth(true);
+        } else if (isEncrypted && storedWalletPassword) {
+            // Fallback to stored wallet password
+            setPassword(storedWalletPassword);
+            setUsingBiometricAuth(true);
         }
 
-        // Use password from biometric authentication if available
-        if (authResult.password) {
-            setPassword(authResult.password)
-            setUsingBiometricAuth(true)
-        } else if (isEncrypted && !password && usingBiometricAuth && storedWalletPassword) {
-            // Fallback to using stored wallet password if we have it
-            setPassword(storedWalletPassword)
-        }
+        // Wait a moment to ensure the password state is updated before proceeding
+        await new Promise(resolve => setTimeout(resolve, 10));
 
         if (!toAddress || !amount) {
             setError('Please fill in all fields')
@@ -144,11 +144,20 @@ export default function SendForm() {
             return
         }
 
-        // Check if we have a password when the wallet is encrypted
-        // Only show error if not using biometric auth (which would set the password)
-        if (isEncrypted && !password && !usingBiometricAuth) {
-            setError('Password required for encrypted wallet')
-            return
+        // Make sure we have a password when the wallet is encrypted before sending
+        // This is a critical check - without it transactions will fail even if UI shows biometric auth
+        if (isEncrypted) {
+            const effectivePassword = password || storedWalletPassword || authResult.password;
+
+            if (!effectivePassword) {
+                setError('Password required for encrypted wallet');
+                return;
+            }
+
+            // Ensure we're using the most recently authenticated password
+            if (effectivePassword !== password) {
+                setPassword(effectivePassword);
+            }
         }
 
         try {
@@ -163,7 +172,9 @@ export default function SendForm() {
                     : undefined
             }
 
-            const txId = await sendTransaction(toAddress, amountSatoshis, password, txOptions)
+            // Ensure we use the most up-to-date password
+            const effectivePassword = password || storedWalletPassword || authResult.password;
+            const txId = await sendTransaction(toAddress, amountSatoshis, effectivePassword, txOptions)
 
             setSuccess('Transaction sent successfully!')
             setSuccessTxId(txId)
@@ -215,10 +226,11 @@ export default function SendForm() {
             if (error.message) {
                 if (error.message.includes('Insufficient funds')) {
                     errorMessage = 'Insufficient funds (including network fee)'
-                } else if (error.message.includes('Invalid password')) {
-                    errorMessage = 'Invalid wallet password'
-                    // If password is invalid and we were using biometric auth, reset the flag
+                } else if (error.message.includes('Invalid password') || error.message.includes('Password required')) {
+                    errorMessage = error.message.includes('Invalid') ? 'Invalid wallet password' : 'Password required for encrypted wallet'
+                    // If password is invalid/missing and we were using biometric auth, reset the flag
                     if (usingBiometricAuth) {
+                        console.error('Biometric auth failed to provide valid password:', error.message);
                         setUsingBiometricAuth(false);
                         setPassword('');
                     }
@@ -340,7 +352,8 @@ export default function SendForm() {
                 // If we have a stored password from biometric auth, use it
                 if (shouldUseBiometric && storedWalletPassword) {
                     setPassword(storedWalletPassword);
-                    console.log("Setting password from stored biometric credentials");
+                } else if (isEncrypted && !storedWalletPassword && shouldUseBiometric) {
+                    console.warn("Using biometric auth but no stored password available!");
                 }
             } catch (error) {
                 console.error("Error initializing biometric state:", error);
@@ -350,11 +363,13 @@ export default function SendForm() {
         initializeBiometricState();
     }, [wasBiometricAuth, storedWalletPassword, isEncrypted])
 
-    // Initialize password state when component mounts
+    // Initialize password state when component mounts or when storedWalletPassword changes
     useEffect(() => {
         if (storedWalletPassword) {
             setPassword(storedWalletPassword);
-            setUsingBiometricAuth(wasBiometricAuth);
+            setUsingBiometricAuth(true);  // If we have a stored password, we must have used biometrics
+        } else if (wasBiometricAuth) {
+            console.warn("wasBiometricAuth is true but no storedWalletPassword available");
         }
     }, [storedWalletPassword, wasBiometricAuth]);
 
@@ -523,7 +538,7 @@ export default function SendForm() {
                 </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4" name="send-transaction-form" autoComplete="off">
                 <div>
                     <label htmlFor="toAddress" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                         To Address
@@ -531,6 +546,7 @@ export default function SendForm() {
                     <input
                         type="text"
                         id="toAddress"
+                        name="toAddress"
                         value={toAddress}
                         onChange={(e) => setToAddress(e.target.value)}
                         placeholder="Enter Avian address (R...)"
@@ -547,6 +563,7 @@ export default function SendForm() {
                         <input
                             type="number"
                             id="amount"
+                            name="amount"
                             value={amount}
                             onChange={(e) => setAmount(e.target.value)}
                             placeholder="0.00000000"
@@ -577,17 +594,19 @@ export default function SendForm() {
                     <>
                         {!usingBiometricAuth ? (
                             <div>
-                                <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                <label htmlFor="walletPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                                     Wallet Password
                                 </label>
                                 <input
                                     type="password"
-                                    id="password"
+                                    id="walletPassword"
+                                    name="walletPassword"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     placeholder="Enter wallet password"
                                     className="input-field text-sm"
                                     disabled={isSending}
+                                    autoComplete="current-password"
                                 />
                                 <p className="text-xs text-gray-500 mt-1">
                                     If biometrics are enabled, you&apos;ll be prompted during transaction
@@ -600,6 +619,14 @@ export default function SendForm() {
                                     <span className="font-medium">Biometric Authentication</span>
                                     <p className="text-xs mt-1">You&apos;ll be prompted for biometric verification when sending</p>
                                 </div>
+                                {/* Hidden password field to satisfy browser requirements */}
+                                <input
+                                    type="password"
+                                    name="hiddenPassword"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    style={{ display: 'none' }}
+                                />
                             </div>
                         )}
                     </>

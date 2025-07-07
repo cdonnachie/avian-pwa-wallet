@@ -130,12 +130,9 @@ export class SecurityService {
 
                     // Clear any existing session markers to force re-authentication
                     sessionStorage.removeItem('security_session_active')
-
-                    console.log('SecurityService: Wallet detected, starting in locked state')
                 } else {
                     // No wallet exists, safe to unlock
                     this.securityState.isLocked = false
-                    console.log('SecurityService: No wallet detected, starting unlocked')
                 }
             } else {
                 // Server-side, always start locked for security

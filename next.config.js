@@ -1,11 +1,10 @@
 /** @type {import('next').NextConfig} */
 const withPWA = require("next-pwa")({
-  dest: "public", // Keep using public directory for compatibility
-  register: false, // We'll handle registration manually for greater control
+  dest: "public",
+  register: true, // Let next-pwa handle registration automatically
   skipWaiting: true,
-  disable: process.env.NODE_ENV === "development" && !process.env.ENABLE_PWA,
-  // Configure logging
-  disableDevLogs: process.env.NODE_ENV === "production",
+  disable: process.env.NODE_ENV === "development",
+  // Simplified caching config
   runtimeCaching: [
     {
       // cache any .wasm artifact
