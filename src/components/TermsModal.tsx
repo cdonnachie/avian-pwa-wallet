@@ -41,7 +41,7 @@ export default function TermsModal({ isOpen, onAccept, onDecline }: TermsModalPr
                     <div className="flex items-center space-x-3">
                         <Shield className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                         <div>
-                            <h2 className="text-lg sm:text-xl font-bold text-white">AVIAN WALLET</h2>
+                            <h2 className="text-lg sm:text-xl font-bold text-white">AVIAN FlightDeck</h2>
                             <p className="text-avian-100 text-xs sm:text-sm">Terms of Use Agreement</p>
                         </div>
                     </div>

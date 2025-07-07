@@ -3,7 +3,7 @@
 /**
  * GradientBackground Component
  * 
- * Provides beautiful gradient backgrounds for the Avian Wallet app.
+ * Provides beautiful gradient backgrounds for the Avian FlightDeck app.
  * 
  * Variants:
  * - 'auto': Light gradient in light mode, dark gradient in dark mode (recommended)
