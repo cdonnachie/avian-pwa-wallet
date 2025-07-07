@@ -579,6 +579,11 @@ export function WalletManager({ onWalletSelect, onClose }: WalletManagerProps) {
                                             🔒 Encrypted
                                         </span>
                                     )}
+                                    {wallet.mnemonic && (
+                                        <span className="px-2 py-1 text-xs bg-green-600 text-white rounded-full flex-shrink-0">
+                                            HD Wallet
+                                        </span>
+                                    )}
                                 </div>
                                 <p className="text-sm text-gray-600 dark:text-gray-400 font-mono break-all">
                                     {wallet.address}

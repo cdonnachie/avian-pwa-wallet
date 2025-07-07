@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Edit, Trash2, Check, X, Search, User, Clock } from 'lucide-react'
+import { Plus, Edit, Trash2, Check, X, Search, User, Clock, Coins } from 'lucide-react'
 import { StorageService } from '@/services/StorageService'
 import { SavedAddress } from '@/types/addressBook'
 
@@ -174,18 +174,27 @@ export default function AddressBook({ onSelectAddress, currentAddress }: Address
                         <div
                             key={address.id}
                             className={`p-3 border rounded-lg transition-colors cursor-pointer ${currentAddress === address.address
-                                    ? 'border-avian-500 bg-avian-50 dark:bg-avian-900/20'
-                                    : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 bg-white dark:bg-gray-800'
+                                ? 'border-avian-500 bg-avian-50 dark:bg-avian-900/20'
+                                : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 bg-white dark:bg-gray-800'
                                 }`}
                             onClick={() => handleSelect(address)}
                         >
                             <div className="flex items-start justify-between">
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 mb-1">
-                                        <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                        {address.isOwnWallet ? (
+                                            <Coins className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                                        ) : (
+                                            <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                        )}
                                         <span className="font-medium text-sm text-gray-900 dark:text-white truncate">
                                             {address.name}
                                         </span>
+                                        {address.isOwnWallet && (
+                                            <span className="text-xs px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full">
+                                                My Wallet
+                                            </span>
+                                        )}
                                         {address.useCount > 0 && (
                                             <span className="text-xs text-gray-500 dark:text-gray-400">
                                                 ({address.useCount} uses)

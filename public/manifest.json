@@ -1,4 +1,5 @@
 {
+  "id": "flightdeck.avian.wallet",
   "name": "Avian FlightDeck",
   "short_name": "FlightDeck",
   "description": "Avian cryptocurrency wallet",
@@ -8,6 +9,32 @@
   "theme_color": "#34e2d5",
   "orientation": "portrait-primary",
   "categories": ["finance", "productivity"],
+  "screenshots": [
+    {
+      "src": "screenshots/mobile-home.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "screenshots/mobile-transactions.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "screenshots/desktop-home.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide"
+    },
+    {
+      "src": "screenshots/desktop-transactions.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide"
+    }
+  ],
   "icons": [
     {
       "src": "icons/icon-48x48.png",

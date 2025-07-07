@@ -65,6 +65,12 @@ export function UTXOSelectionSettings({
             name: 'Consolidate Dust',
             description: 'Include small UTXOs to clean up wallet',
             icon: <Coins className="w-4 h-4" />
+        },
+        {
+            value: CoinSelectionStrategy.MANUAL,
+            name: 'Manual Selection',
+            description: 'Choose specific UTXOs for your transaction',
+            icon: <UserCheck className="w-4 h-4" />
         }
     ]
 
@@ -126,8 +132,8 @@ export function UTXOSelectionSettings({
                                 <label
                                     key={s.value}
                                     className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${strategy === s.value
-                                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                                            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                                         }`}
                                 >
                                     <input

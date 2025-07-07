@@ -1,22 +1,25 @@
 'use client'
 
-import { useState } from 'react'
-import { Send, AlertCircle, ExternalLink, BookOpen, Settings, Coins, Lock } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Send, AlertCircle, ExternalLink, BookOpen, Settings, Coins, Lock, UserCheck } from 'lucide-react'
 import { useWallet } from '@/contexts/WalletContext'
 import { useSecurity } from '@/contexts/SecurityContext'
 import { WalletService } from '@/services/WalletService'
 import { StorageService } from '@/services/StorageService'
-import { CoinSelectionStrategy } from '@/services/UTXOSelectionService'
+import { securityService } from '@/services/SecurityService'
+import { CoinSelectionStrategy, EnhancedUTXO } from '@/services/UTXOSelectionService'
 import AddressBook from './AddressBook'
 import { UTXOSelectionSettings } from './UTXOSelectionSettings'
 import { UTXOOverview } from './UTXOOverview'
+import { UTXOSelector } from './UTXOSelector'
 
 export default function SendForm() {
     const { sendTransaction, balance, isLoading, isConnected, isEncrypted } = useWallet()
-    const { requireAuth } = useSecurity()
+    const { requireAuth, wasBiometricAuth, storedWalletPassword } = useSecurity()
     const [toAddress, setToAddress] = useState('')
     const [amount, setAmount] = useState('')
-    const [password, setPassword] = useState('')
+    const [password, setPassword] = useState(storedWalletPassword || '')
+    const [usingBiometricAuth, setUsingBiometricAuth] = useState(false)
     const [error, setError] = useState('')
     const [success, setSuccess] = useState('')
     const [successTxId, setSuccessTxId] = useState('')
@@ -36,6 +39,10 @@ export default function SendForm() {
         maxInputs: 20,
         minConfirmations: 0
     })
+    const [isConsolidatingToSelf, setIsConsolidatingToSelf] = useState(false)
+    const [selectedUTXOs, setSelectedUTXOs] = useState<EnhancedUTXO[]>([])
+    const [showUTXOSelector, setShowUTXOSelector] = useState(false)
+    const [manuallySelectedUTXOs, setManuallySelectedUTXOs] = useState<EnhancedUTXO[]>([])
 
     const validateAddress = (address: string): boolean => {
         // Avian addresses should be base58 encoded and start with 'R'
@@ -64,15 +71,43 @@ export default function SendForm() {
         setSuccess('')
         setSuccessTxId('')
 
+        // Get security settings to determine if biometrics are required
+        const settings = await securityService.getSecuritySettings()
+        const biometricsRequired = settings.biometric.enabled && settings.biometric.requireForTransactions
+
+        // If biometrics are required, the password field will be hidden and we'll use biometric auth
+        // Set this state early to update UI and show "Authenticating..." message if needed
+        if (biometricsRequired) {
+            setUsingBiometricAuth(true)
+        }
+
         // Require authentication for sensitive operation
-        const authRequired = await requireAuth()
-        if (!authRequired) {
+        const authResult = await requireAuth()
+        if (!authResult.success) {
             setError('Authentication required for sending transactions')
+            // Reset UI if authentication failed
+            setUsingBiometricAuth(wasBiometricAuth && !!storedWalletPassword)
             return
+        }
+
+        // Use password from biometric authentication if available
+        if (authResult.password) {
+            setPassword(authResult.password)
+            setUsingBiometricAuth(true)
+        } else if (isEncrypted && !password && usingBiometricAuth && storedWalletPassword) {
+            // Fallback to using stored wallet password if we have it
+            setPassword(storedWalletPassword)
         }
 
         if (!toAddress || !amount) {
             setError('Please fill in all fields')
+            return
+        }
+
+        // If using manual UTXO selection, make sure UTXOs have been selected
+        if (utxoOptions.strategy === CoinSelectionStrategy.MANUAL && manuallySelectedUTXOs.length === 0) {
+            setError('Please select UTXOs for your transaction')
+            setShowUTXOSelector(true)
             return
         }
 
@@ -104,13 +139,25 @@ export default function SendForm() {
             return
         }
 
+        // Check if we have a password when the wallet is encrypted
+        if (isEncrypted && !password) {
+            setError('Password required for encrypted wallet')
+            return
+        }
+
         try {
             setIsSending(true)
             setError('') // Clear any previous errors
 
+            // Prepare transaction options including manual UTXO selection if applicable
+            const txOptions = {
+                ...utxoOptions,
+                manualSelection: utxoOptions.strategy === CoinSelectionStrategy.MANUAL
+                    ? manuallySelectedUTXOs
+                    : undefined
+            }
 
-
-            const txId = await sendTransaction(toAddress, amountSatoshis, password, utxoOptions)
+            const txId = await sendTransaction(toAddress, amountSatoshis, password, txOptions)
 
             setSuccess('Transaction sent successfully!')
             setSuccessTxId(txId)
@@ -128,10 +175,29 @@ export default function SendForm() {
                 await StorageService.updateAddressUsage(toAddress)
             }
 
-            // Clear form on success
+            // Clear form fields on success but keep authentication state
             setToAddress('')
             setAmount('')
-            setPassword('')
+
+            // Only clear password if not using biometric auth
+            // This prevents repeatedly asking for authentication
+            if (!wasBiometricAuth) {
+                setPassword('')
+            }
+
+            // Clear manually selected UTXOs and reset strategy after successful transaction
+            if (utxoOptions.strategy === CoinSelectionStrategy.MANUAL) {
+                setManuallySelectedUTXOs([])
+                setSelectedUTXOs([]) // Clear the other UTXOs state as well
+                setShowUTXOSelector(false)
+                // Reset strategy back to default
+                resetUTXOSettings()
+            }
+
+            // Clear consolidation flag if set
+            if (isConsolidatingToSelf) {
+                setIsConsolidatingToSelf(false)
+            }
 
 
         } catch (error: any) {
@@ -195,6 +261,100 @@ export default function SendForm() {
             minConfirmations: 0
         })
     }
+
+    // Add wallet address to address book
+    const addWalletAddressToBook = async () => {
+        try {
+            const wallet = await StorageService.getActiveWallet()
+            if (wallet) {
+                const addressData = {
+                    id: '',
+                    name: wallet.name,
+                    address: wallet.address,
+                    description: 'My wallet address for consolidating funds',
+                    dateAdded: new Date(),
+                    useCount: 0,
+                    isOwnWallet: true
+                }
+
+                const success = await StorageService.saveAddress(addressData)
+                if (success) {
+                    setToAddress(wallet.address)
+                }
+            }
+        } catch (error) {
+            console.error("Failed to add wallet address to address book:", error)
+        }
+    }
+
+    // Handle UTXO settings changes and auto-fill wallet address for dust consolidation
+    const handleUTXOSettingsApply = async (options: any) => {
+        setUtxoOptions(options)
+
+        if (options.strategy === CoinSelectionStrategy.CONSOLIDATE_DUST) {
+            try {
+                // Get the current wallet's address for auto-consolidation
+                const wallet = await StorageService.getActiveWallet()
+                if (wallet) {
+                    setToAddress(wallet.address)
+                    setIsConsolidatingToSelf(true)
+                }
+            } catch (error) {
+                console.error("Failed to get wallet address for consolidation:", error)
+            }
+        } else if (options.strategy === CoinSelectionStrategy.MANUAL) {
+            // When manual selection is chosen, show the UTXO selector
+            setShowUTXOSelector(true)
+        } else if (isConsolidatingToSelf) {
+            // If we're switching away from consolidation, clear the address field if it was auto-filled
+            setToAddress('')
+            setIsConsolidatingToSelf(false)
+        }
+    }
+
+    // Initialize and update biometric auth state from security context
+    useEffect(() => {
+        const initializeBiometricState = async () => {
+            try {
+                // Check if biometrics are required for transactions
+                const settings = await securityService.getSecuritySettings();
+                const biometricsRequired = settings.biometric.enabled && settings.biometric.requireForTransactions;
+
+                // Determine if we should use biometric auth based on settings and context
+                const shouldUseBiometric =
+                    (biometricsRequired || (wasBiometricAuth && !!storedWalletPassword));
+
+                setUsingBiometricAuth(shouldUseBiometric);
+
+                // If we have a stored password from biometric auth, use it
+                if (shouldUseBiometric && storedWalletPassword) {
+                    setPassword(storedWalletPassword);
+                }
+            } catch (error) {
+                console.error("Error initializing biometric state:", error);
+            }
+        };
+
+        initializeBiometricState();
+    }, [wasBiometricAuth, storedWalletPassword])
+
+    useEffect(() => {
+        // Auto-fill wallet's own address when using dust consolidation strategy
+        const autoFillAddress = async () => {
+            if (utxoOptions.strategy === CoinSelectionStrategy.CONSOLIDATE_DUST) {
+                try {
+                    const wallet = await StorageService.getActiveWallet()
+                    if (wallet) {
+                        setToAddress(wallet.address)
+                    }
+                } catch (error) {
+                    console.error("Failed to auto-fill wallet address:", error)
+                }
+            }
+        }
+
+        autoFillAddress()
+    }, [utxoOptions.strategy])
 
     return (
         <div className="p-3 sm:p-4 lg:p-6">
@@ -392,22 +552,37 @@ export default function SendForm() {
                     </p>
                 </div>
 
-                {/* Password field - only show if wallet is encrypted */}
+                {/* Display appropriate authentication UI based on wallet encryption and biometric settings */}
                 {isEncrypted && (
-                    <div>
-                        <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                            Wallet Password
-                        </label>
-                        <input
-                            type="password"
-                            id="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Enter wallet password"
-                            className="input-field text-sm"
-                            disabled={isSending}
-                        />
-                    </div>
+                    <>
+                        {!usingBiometricAuth ? (
+                            <div>
+                                <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                    Wallet Password
+                                </label>
+                                <input
+                                    type="password"
+                                    id="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    placeholder="Enter wallet password"
+                                    className="input-field text-sm"
+                                    disabled={isSending}
+                                />
+                                <p className="text-xs text-gray-500 mt-1">
+                                    If biometrics are enabled, you&apos;ll be prompted during transaction
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg mb-2">
+                                <Lock className="w-5 h-5" />
+                                <div>
+                                    <span className="font-medium">Biometric Authentication</span>
+                                    <p className="text-xs mt-1">You&apos;ll be prompted for biometric verification when sending</p>
+                                </div>
+                            </div>
+                        )}
+                    </>
                 )}
 
                 <button
@@ -446,7 +621,7 @@ export default function SendForm() {
             <UTXOSelectionSettings
                 isOpen={showUTXOSettings}
                 onClose={() => setShowUTXOSettings(false)}
-                onApply={(options) => setUtxoOptions(options)}
+                onApply={handleUTXOSettingsApply}
                 currentOptions={utxoOptions}
             />
 
@@ -455,6 +630,76 @@ export default function SendForm() {
                 isOpen={showUTXOOverview}
                 onClose={() => setShowUTXOOverview(false)}
             />
+
+            {/* Dust Consolidation Notice */}
+            {isConsolidatingToSelf && (
+                <div className="my-4 p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg flex items-start ">
+                    <Coins className="w-5 h-5 text-blue-500 mt-0.5 mr-3 flex-shrink-0" />
+                    <div>
+                        <p className="text-sm text-blue-800 dark:text-blue-200 font-medium">
+                            Dust Consolidation Mode
+                        </p>
+                        <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                            You are consolidating small UTXOs (dust) back to your own wallet address. This helps clean up your wallet and may improve performance.
+                        </p>
+                    </div>
+                </div>
+            )}
+
+            <div className="my-4 text-right">
+                <button
+                    type="button"
+                    onClick={addWalletAddressToBook}
+                    className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline flex items-center justify-end ml-auto"
+                >
+                    <Coins className="w-3 h-3 mr-1" />
+                    Save my wallet address to address book
+                </button>
+            </div>
+
+            {/* UTXO Selector - Manual Selection of UTXOs */}
+            <UTXOSelector
+                isOpen={showUTXOSelector}
+                onClose={() => setShowUTXOSelector(false)}
+                onSelect={(selectedUTXOs) => {
+                    setManuallySelectedUTXOs(selectedUTXOs);
+                    if (selectedUTXOs.length > 0) {
+                        const totalSelected = selectedUTXOs.reduce((sum, utxo) => sum + utxo.value, 0);
+                        // Calculate a suggested amount (leave some for fee)
+                        const suggestedAmount = ((totalSelected - 10000) / 100000000).toFixed(8);
+                        if (!amount) {
+                            setAmount(suggestedAmount);
+                        }
+                    }
+                }}
+                targetAmount={parseFloat(amount || '0') * 100000000}
+                initialSelection={manuallySelectedUTXOs}
+                feeRate={utxoOptions.feeRate || 10000}
+            />
+
+            {/* Manual UTXO Selection Notice */}
+            {utxoOptions.strategy === CoinSelectionStrategy.MANUAL && (
+                <div className="mt-3 p-3 bg-yellow-100 border border-yellow-300 rounded-lg text-yellow-700 text-sm">
+                    <div className="font-medium mb-2">
+                        Manual UTXO Selection Active
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                        <div className="flex-1 text-sm">
+                            {manuallySelectedUTXOs.length > 0
+                                ? `${manuallySelectedUTXOs.length} UTXOs selected (${(manuallySelectedUTXOs.reduce((sum, utxo) => sum + utxo.value, 0) / 100000000).toFixed(8)} AVN)`
+                                : 'No UTXOs selected'}
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setShowUTXOSelector(true)}
+                            className="mt-2 sm:mt-0 text-xs flex items-center justify-center px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
+                        >
+                            <UserCheck className="w-3 h-3 mr-1" />
+                            {manuallySelectedUTXOs.length > 0 ? 'Modify Selection' : 'Select UTXOs'}
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

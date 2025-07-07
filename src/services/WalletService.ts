@@ -333,14 +333,29 @@ export class WalletService {
             }
 
             // Select optimal UTXOs using the selection service
+            const strategyRecommendation = UTXOSelectionService.getRecommendedStrategy(amount, enhancedUTXOs, {
+                consolidateDust: options?.strategy === CoinSelectionStrategy.CONSOLIDATE_DUST
+            });
+
+            // Get wallet's own address for dust consolidation
+            let selfAddress;
+            if (strategyRecommendation.recommendSelfAddress || options?.strategy === CoinSelectionStrategy.CONSOLIDATE_DUST) {
+                const wallet = await StorageService.getActiveWallet();
+                if (wallet) {
+                    selfAddress = wallet.address;
+                }
+            }
+
             const selectionOptions: UTXOSelectionOptions = {
-                strategy: options?.strategy || UTXOSelectionService.getRecommendedStrategy(amount, enhancedUTXOs),
+                strategy: options?.strategy || strategyRecommendation.strategy,
                 targetAmount: amount,
                 feeRate: feeRate,
                 maxInputs: options?.maxInputs || 20,
                 minConfirmations: options?.minConfirmations || 0,
                 allowUnconfirmed: true,
-                includeDust: false
+                includeDust: options?.strategy === CoinSelectionStrategy.CONSOLIDATE_DUST,
+                isAutoConsolidation: options?.strategy === CoinSelectionStrategy.CONSOLIDATE_DUST,
+                selfAddress: selfAddress
             }
 
             const selectionResult = UTXOSelectionService.selectUTXOs(enhancedUTXOs, selectionOptions)
@@ -1342,17 +1357,24 @@ export class WalletService {
                         // Calculate proper confirmations
                         const confirmations = await this.calculateConfirmations(historyTx.height)
 
+                        // Check if this is a self-transaction (consolidation)
+                        const isSelfTransaction = classification.fromAddress === classification.toAddress &&
+                            classification.fromAddress === address;
+
                         // Save transaction to database
                         await StorageService.saveTransaction({
                             txid: historyTx.tx_hash,
                             amount: classification.amount / 100000000, // Convert satoshis to AVN
-                            address: classification.type === 'send' ? classification.toAddress : classification.toAddress,
+                            address: classification.toAddress,
                             fromAddress: classification.fromAddress,
                             type: classification.type,
                             timestamp: new Date(txDetails.time ? txDetails.time * 1000 : Date.now()),
                             confirmations: confirmations,
                             blockHeight: historyTx.height || undefined
                         })
+
+                        // We don't create a separate record for self-transfers anymore
+                        // The UI will handle showing it as both send and receive
 
                         processedCount++
                     }
@@ -1607,19 +1629,33 @@ export class WalletService {
                         toAddress: firstOutputToOthers || 'Unknown'
                     }
                 } else {
-                    // This is a transfer between our own wallets
+                    // This is a transfer between our own wallets or a self-transfer (consolidation)
+                    // Check if the input and output are the same address (self-transfer/consolidation)
+                    const isSelfTransfer = inputAddresses.includes(address);
+
+                    if (isSelfTransfer) {
+                        // This is a self-transfer (consolidation to the same wallet)
+                        // Store it as receive, UI layer will display as both
+                        return {
+                            type: 'receive',
+                            amount: totalOutputToUs,
+                            fromAddress: address, // It's from ourselves
+                            toAddress: address    // To ourselves
+                        }
+                    }
+
                     // Check if the input is from a different wallet than the target address
-                    let inputFromDifferentWallet = false
+                    let inputFromDifferentWallet = false;
                     for (const inputAddr of inputAddresses) {
                         if (inputAddr !== address && await this.isOurAddress(inputAddr)) {
-                            inputFromDifferentWallet = true
-                            break
+                            inputFromDifferentWallet = true;
+                            break;
                         }
                     }
 
                     if (inputFromDifferentWallet) {
                         // This is a receive from our other wallet
-                        const senderAddress = inputAddresses.find(inputAddr => inputAddr !== address) || inputAddresses[0]
+                        const senderAddress = inputAddresses.find(inputAddr => inputAddr !== address) || inputAddresses[0];
                         return {
                             type: 'receive',
                             amount: totalOutputToUs,
@@ -1850,11 +1886,14 @@ export class WalletService {
                             // Calculate proper confirmations
                             const confirmations = await this.calculateConfirmations(historyTx.height)
 
-                            // Save transaction to database
+                            // Save transaction to database                        // Check if this is a self-transaction (consolidation)
+                            const isSelfTransaction = classification.fromAddress === classification.toAddress &&
+                                classification.fromAddress === targetAddress;
+
                             const transactionData = {
                                 txid: historyTx.tx_hash,
                                 amount: classification.amount / 100000000, // Convert satoshis to AVN
-                                address: classification.type === 'send' ? classification.toAddress : classification.toAddress, // Always use toAddress as the main address
+                                address: classification.toAddress,
                                 fromAddress: classification.fromAddress,
                                 type: classification.type,
                                 timestamp: new Date(txDetails.time ? txDetails.time * 1000 : Date.now()),
@@ -1863,6 +1902,9 @@ export class WalletService {
                             }
 
                             await StorageService.saveTransaction(transactionData)
+
+                            // We don't create a separate record for self-transfers anymore
+                            // The UI will handle showing it as both send and receive
 
                             processedCount++
                             processedTxids.add(historyTx.tx_hash)
@@ -1984,11 +2026,15 @@ export class WalletService {
                         // Calculate proper confirmations
                         const confirmations = await this.calculateConfirmations(historyTx.height)
 
+                        // Check if this is a self-transaction (consolidation)
+                        const isSelfTransaction = classification.fromAddress === classification.toAddress &&
+                            classification.fromAddress === targetAddress;
+
                         // Save transaction to database
                         const transactionData = {
                             txid: historyTx.tx_hash,
                             amount: classification.amount / 100000000, // Convert satoshis to AVN
-                            address: classification.type === 'send' ? classification.toAddress : classification.toAddress,
+                            address: classification.toAddress,
                             fromAddress: classification.fromAddress,
                             type: classification.type,
                             timestamp: new Date(txDetails.time ? txDetails.time * 1000 : Date.now()),
@@ -2001,6 +2047,19 @@ export class WalletService {
 
                         // Report progress after successfully processing the transaction
                         onProgress?.(processedCount, total, historyTx.tx_hash, transactionData)
+
+                        // For self-transactions, we want to create both a send and receive record
+                        if (isSelfTransaction && classification.type === 'receive') {
+                            // Also create the corresponding send transaction
+                            const sendTransactionData = {
+                                ...transactionData,
+                                type: 'send' as const // This is the send record
+                            }
+                            await StorageService.saveTransaction(sendTransactionData)
+
+                            // Report the additional transaction to any listeners
+                            onProgress?.(processedCount, total, historyTx.tx_hash, sendTransactionData)
+                        }
 
                         // Update balance periodically (every 10 transactions) for large wallets
                         if (onBalanceUpdate && processedCount % 10 === 0) {

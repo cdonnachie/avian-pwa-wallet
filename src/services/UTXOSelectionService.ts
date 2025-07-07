@@ -50,13 +50,15 @@ export interface UTXOSelectionOptions {
     manualSelection?: EnhancedUTXO[]
     allowUnconfirmed?: boolean
     dustThreshold?: number
+    isAutoConsolidation?: boolean
+    selfAddress?: string // The wallet's own address for auto consolidation
 }
 
 export class UTXOSelectionService {
     private static readonly DEFAULT_FEE_RATE = 10000 // 0.0001 AVN in satoshis
     private static readonly DEFAULT_DUST_THRESHOLD = 1000 // 0.00001 AVN in satoshis
     private static readonly DEFAULT_MAX_INPUTS = 20
-    private static readonly DEFAULT_MIN_CONFIRMATIONS = 0
+    private static readonly DEFAULT_MIN_CONFIRMATIONS = 6
 
     /**
      * Select optimal UTXOs for a transaction
@@ -74,7 +76,9 @@ export class UTXOSelectionService {
             minConfirmations = this.DEFAULT_MIN_CONFIRMATIONS,
             manualSelection,
             allowUnconfirmed = false,
-            dustThreshold = this.DEFAULT_DUST_THRESHOLD
+            dustThreshold = this.DEFAULT_DUST_THRESHOLD,
+            isAutoConsolidation = false,
+            selfAddress
         } = options
 
         // Enhance UTXOs with additional metadata
@@ -536,26 +540,31 @@ export class UTXOSelectionService {
             prioritizeFees?: boolean
             prioritizePrivacy?: boolean
             consolidateDust?: boolean
+            selfAddress?: string
         } = {}
-    ): CoinSelectionStrategy {
+    ): { strategy: CoinSelectionStrategy, recommendSelfAddress?: boolean } {
         const totalAvailable = availableUTXOs.reduce((sum, utxo) => sum + utxo.value, 0)
         const dustCount = availableUTXOs.filter(utxo => utxo.isDust).length
         const amountRatio = targetAmount / totalAvailable
 
         if (options.consolidateDust && dustCount > 5) {
-            return CoinSelectionStrategy.CONSOLIDATE_DUST
+            // For dust consolidation, recommend using the wallet's own address
+            return {
+                strategy: CoinSelectionStrategy.CONSOLIDATE_DUST,
+                recommendSelfAddress: true
+            }
         }
 
         if (options.prioritizePrivacy) {
-            return CoinSelectionStrategy.PRIVACY_FOCUSED
+            return { strategy: CoinSelectionStrategy.PRIVACY_FOCUSED }
         }
 
         if (options.prioritizeFees || amountRatio > 0.8) {
-            return CoinSelectionStrategy.SMALLEST_FIRST
+            return { strategy: CoinSelectionStrategy.SMALLEST_FIRST }
         }
 
         // Default to best fit for most transactions
-        return CoinSelectionStrategy.BEST_FIT
+        return { strategy: CoinSelectionStrategy.BEST_FIT }
     }
 
     /**

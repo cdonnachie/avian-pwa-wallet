@@ -489,36 +489,54 @@ export class StorageService {
     // Transaction history methods
     static async saveTransaction(transaction: Omit<TransactionData, 'id'>): Promise<void> {
         try {
-            // First check if a transaction with this txid already exists
-            const existingTx = await this.getTransaction(transaction.txid)
+            // For self-transfers, we need to check if we already have a transaction with same txid AND type
+            // This allows us to store both send and receive records for the same transaction
+            let existingTx = null;
+
+            // Get all transactions with this txid
+            const allTransactions = await this.performTransaction('transactions', 'readonly', (store) =>
+                store.index('txid').getAll(transaction.txid)
+            );
+
+            // Find one with matching type if it exists
+            existingTx = allTransactions.find(tx => tx.type === transaction.type);
 
             if (existingTx) {
-                // Update the existing transaction
+                // Update the existing transaction of this type
                 const updatedTx = { ...existingTx, ...transaction }
                 await this.performTransaction('transactions', 'readwrite', (store) =>
                     store.put(updatedTx)
                 )
-
             } else {
                 // Create new transaction
                 await this.performTransaction('transactions', 'readwrite', (store) =>
                     store.put(transaction)
                 )
-
             }
         } catch (error) {
             // Check if this is a uniqueness constraint error on txid
             if (error instanceof Error && error.message.includes('uniqueness requirements')) {
                 console.warn('Transaction already exists with txid:', transaction.txid, '- attempting to update instead')
                 try {
-                    // Try to fetch the existing transaction and update it
-                    const existingTx = await this.getTransaction(transaction.txid)
+                    // Get all transactions with this txid
+                    const allTransactions = await this.performTransaction('transactions', 'readonly', (store) =>
+                        store.index('txid').getAll(transaction.txid)
+                    );
+
+                    // Find one with matching type if it exists
+                    const existingTx = allTransactions.find(tx => tx.type === transaction.type);
+
                     if (existingTx) {
                         const updatedTx = { ...existingTx, ...transaction }
                         await this.performTransaction('transactions', 'readwrite', (store) =>
                             store.put(updatedTx)
                         )
-
+                        return
+                    } else {
+                        // If no matching type exists, create a new record
+                        await this.performTransaction('transactions', 'readwrite', (store) =>
+                            store.put(transaction)
+                        )
                         return
                     }
                 } catch (updateError) {
@@ -544,13 +562,8 @@ export class StorageService {
                     )
                 ])
 
-                // Combine and deduplicate by txid
-                const allTx = [...sentTx, ...receivedTx]
-                const uniqueTx = allTx.filter((tx, index, arr) =>
-                    arr.findIndex(t => t.txid === tx.txid) === index
-                )
-
-                return uniqueTx
+                // Combine without deduplicating by txid to preserve both send and receive records for self-transfers
+                return [...sentTx, ...receivedTx]
             } else {
                 return await this.performTransaction('transactions', 'readonly', (store) =>
                     store.getAll()
@@ -562,8 +575,18 @@ export class StorageService {
         }
     }
 
-    static async getTransaction(txid: string): Promise<TransactionData | null> {
+    static async getTransaction(txid: string, type?: 'send' | 'receive'): Promise<TransactionData | null> {
         try {
+            // If type is provided, get all transactions with this txid and filter by type
+            if (type) {
+                const allTransactions = await this.performTransaction('transactions', 'readonly', (store) =>
+                    store.index('txid').getAll(txid)
+                );
+
+                return allTransactions.find(tx => tx.type === type) || null;
+            }
+
+            // Otherwise, return the first transaction with this txid
             return await this.performTransaction('transactions', 'readonly', (store) =>
                 store.index('txid').get(txid)
             ) || null

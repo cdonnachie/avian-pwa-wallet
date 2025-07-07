@@ -255,13 +255,13 @@ export class SecurityService {
                 publicKey: {
                     challenge: crypto.getRandomValues(new Uint8Array(32)),
                     rp: {
-                        name: "Avian Wallet",
+                        name: "Avian FlightDeck",
                         id: window.location.hostname
                     },
                     user: {
                         id: new TextEncoder().encode(effectiveUserId),
                         name: "wallet-user",
-                        displayName: "Wallet User"
+                        displayName: "FlightDeck User"
                     },
                     pubKeyCredParams: [
                         { alg: -7, type: "public-key" }, // ES256
@@ -518,7 +518,9 @@ export class SecurityService {
 
         await this.logSecurityEvent('wallet_lock', `Wallet locked: ${reason}`, true)
         this.notifyLockStateChange(true)
-    } async unlockWallet(password?: string, useBiometric: boolean = false): Promise<boolean> {
+    }
+
+    async unlockWallet(password?: string, useBiometric: boolean = false): Promise<boolean> {
         try {
             await this.ensureInitialized()
 

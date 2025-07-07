@@ -18,6 +18,94 @@ interface TransactionData {
     blockHeight?: number
 }
 
+// Extended interface to support virtual transaction entries for self-transfers
+interface EnhancedTransactionData extends TransactionData {
+    isVirtual?: boolean; // Marks this as a UI-only transaction entry
+}
+
+// Helper function to check if a transaction is a self-transfer
+const isSelfTransfer = (tx: TransactionData, walletAddress: string): boolean => {
+    return tx.address === tx.fromAddress && tx.address === walletAddress;
+}
+
+// Helper function to process transactions for display
+const processTransactionsForDisplay = (txs: TransactionData[], walletAddress: string): EnhancedTransactionData[] => {
+    const result: EnhancedTransactionData[] = [];
+
+    // Group transactions by txid to help identify self-transfers with potential duplicates
+    const txsByTxid = new Map<string, TransactionData[]>();
+
+    // Group all transactions by txid
+    txs.forEach(tx => {
+        if (!txsByTxid.has(tx.txid)) {
+            txsByTxid.set(tx.txid, []);
+        }
+        txsByTxid.get(tx.txid)!.push(tx);
+    });
+
+    // Process each transaction group
+    txsByTxid.forEach((transactions, txid) => {
+        // Check if any transaction in this group is a self-transfer
+        const selfTransferTxs = transactions.filter(tx => isSelfTransfer(tx, walletAddress));
+        const hasSelfTransfer = selfTransferTxs.length > 0;
+
+        // For self-transfers, we'll add exactly one send and one receive entry
+        if (hasSelfTransfer) {
+            // Get all unique transactions by type (in case of duplicates)
+            // For each type, take only the first transaction to avoid duplicates
+            const sendTxs = transactions.filter(tx => tx.type === 'send');
+            const receiveTxs = transactions.filter(tx => tx.type === 'receive');
+
+            // Take only the first of each type to avoid duplicates
+            const sendTx = sendTxs.length > 0 ? sendTxs[0] : null;
+            const receiveTx = receiveTxs.length > 0 ? receiveTxs[0] : null;
+
+            // If we don't have a send transaction, create a virtual one from the receive
+            if (!sendTx && receiveTx) {
+                result.push({
+                    ...receiveTx,
+                    type: 'send',
+                    isVirtual: true,
+                    id: receiveTx.id ? receiveTx.id * -1 : undefined // Ensure unique ID
+                });
+            }
+            // If we have a send transaction, add only the first one
+            else if (sendTx) {
+                result.push(sendTx);
+            }
+
+            // If we don't have a receive transaction, create a virtual one from the send
+            if (!receiveTx && sendTx) {
+                result.push({
+                    ...sendTx,
+                    type: 'receive',
+                    isVirtual: true,
+                    id: sendTx.id ? sendTx.id * -1 : undefined // Ensure unique ID
+                });
+            }
+            // If we have a receive transaction, add only the first one
+            else if (receiveTx) {
+                result.push(receiveTx);
+            }
+        } else {
+            // For regular transactions, deduplicate by type
+            // Create a map to track if we've seen a transaction of each type for this txid
+            const typesAdded = new Set<string>();
+
+            // Add only the first instance of each transaction type
+            transactions.forEach(tx => {
+                // Only add this transaction if we haven't seen its type before
+                if (!typesAdded.has(tx.type)) {
+                    result.push(tx);
+                    typesAdded.add(tx.type);
+                }
+            });
+        }
+    });
+
+    return result;
+};
+
 interface TransactionHistoryProps {
     isOpen: boolean
     onClose: () => void
@@ -25,7 +113,7 @@ interface TransactionHistoryProps {
 
 export function TransactionHistory({ isOpen, onClose }: TransactionHistoryProps) {
     const { address, refreshTransactionHistory, processingProgress, reprocessTransactionHistoryProgressive } = useWallet()
-    const [transactions, setTransactions] = useState<TransactionData[]>([])
+    const [transactions, setTransactions] = useState<EnhancedTransactionData[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [isRefreshing, setIsRefreshing] = useState(false)
     const [filter, setFilter] = useState<'all' | 'send' | 'receive'>('all')
@@ -45,7 +133,10 @@ export function TransactionHistory({ isOpen, onClose }: TransactionHistoryProps)
             const finalSorted = finalTxHistory.sort((a, b) =>
                 new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
             )
-            setTransactions(finalSorted)
+
+            // Process transactions to handle self-transfers
+            const enhancedTransactions = processTransactionsForDisplay(finalSorted, address);
+            setTransactions(enhancedTransactions)
 
         } catch (error) {
             console.error('Progressive refresh failed:', error)
@@ -66,7 +157,10 @@ export function TransactionHistory({ isOpen, onClose }: TransactionHistoryProps)
             const sortedTx = txHistory.sort((a, b) =>
                 new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
             )
-            setTransactions(sortedTx)
+
+            // Process transactions to handle self-transfers
+            const enhancedTransactions = processTransactionsForDisplay(sortedTx, address);
+            setTransactions(enhancedTransactions)
             setIsLoading(false)
 
             // Only refresh from blockchain if we have no local data
@@ -78,7 +172,10 @@ export function TransactionHistory({ isOpen, onClose }: TransactionHistoryProps)
                     const updatedSorted = updatedTxHistory.sort((a, b) =>
                         new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
                     )
-                    setTransactions(updatedSorted)
+
+                    // Process transactions to handle self-transfers
+                    const enhancedTransactions = processTransactionsForDisplay(updatedSorted, address);
+                    setTransactions(enhancedTransactions)
                 } catch (refreshError) {
                     console.warn('Failed to refresh from blockchain:', refreshError)
                 }
@@ -112,7 +209,10 @@ export function TransactionHistory({ isOpen, onClose }: TransactionHistoryProps)
                 const sortedTx = txHistory.sort((a, b) =>
                     new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
                 )
-                setTransactions(sortedTx)
+
+                // Process transactions to handle self-transfers
+                const enhancedTransactions = processTransactionsForDisplay(sortedTx, address);
+                setTransactions(enhancedTransactions)
             } catch (error) {
                 console.error('Error updating transactions during processing:', error)
             }
@@ -341,7 +441,7 @@ export function TransactionHistory({ isOpen, onClose }: TransactionHistoryProps)
                     ) : (
                         <div className="divide-y divide-gray-200 dark:divide-gray-700">
                             {paginatedTransactions.map((tx) => (
-                                <div key={tx.id || tx.txid} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                <div key={`${tx.id || tx.txid}-${tx.type}${tx.isVirtual ? '-virtual' : ''}`} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50">
                                     <div className="flex items-start justify-between gap-4">
                                         <div className="flex items-start gap-3 min-w-0 flex-1">
                                             {/* Transaction Icon */}

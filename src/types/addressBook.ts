@@ -7,6 +7,7 @@ export interface SavedAddress {
     dateAdded: Date
     lastUsed?: Date
     useCount: number
+    isOwnWallet?: boolean // Flag to indicate this is one of the user's own wallet addresses
 }
 
 export interface AddressBookData {
