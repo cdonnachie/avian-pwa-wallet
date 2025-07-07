@@ -8,21 +8,41 @@ export class BackupService {
 
     /**
      * Create a full backup of all wallet data
+     * 
+     * Note about biometric data:
+     * - Actual biometric credentials (biometricWalletPasswords, biometricCredentialId, 
+     *   biometricWalletCredentials) are NOT included in backups as they are device-specific
+     * - Only information about WHICH wallets had biometrics enabled is backed up
+     * - Users will need to set up biometrics again after restoring on a new device
      */
     static async createFullBackup(password?: string): Promise<WalletBackup> {
         try {
             // Get all wallets
             const wallets = await StorageService.getAllWallets()
-            const backupWallets: BackupWallet[] = wallets.map(wallet => ({
-                id: wallet.id || 0,
-                name: wallet.name,
-                address: wallet.address,
-                privateKey: wallet.privateKey,
-                mnemonic: wallet.mnemonic,
-                isEncrypted: wallet.isEncrypted,
-                isActive: wallet.isActive,
-                createdAt: wallet.createdAt ? new Date(wallet.createdAt).getTime() : Date.now()
-            }))
+            // Note: The actual biometric credentials cannot be transferred between devices
+            const backupWallets: BackupWallet[] = []
+            for (const wallet of wallets) {
+                let biometricEnabled = false;
+                try {
+                    if (wallet.address) {
+                        biometricEnabled = await StorageService.isBiometricEnabledForWallet(wallet.address);
+                    }
+                } catch (biometricError) {
+                    console.warn('Could not determine biometric status for wallet:', biometricError);
+                }
+
+                backupWallets.push({
+                    id: wallet.id || 0,
+                    name: wallet.name,
+                    address: wallet.address,
+                    privateKey: wallet.privateKey,
+                    mnemonic: wallet.mnemonic,
+                    isEncrypted: wallet.isEncrypted,
+                    isActive: wallet.isActive,
+                    createdAt: wallet.createdAt ? new Date(wallet.createdAt).getTime() : Date.now(),
+                    biometricEnabled // Only used for informational purposes about which wallets had biometrics
+                })
+            }
 
             // Get address book
             const addressBook = await StorageService.getSavedAddresses()
@@ -36,14 +56,70 @@ export class BackupService {
                 createdAt: addr.dateAdded ? new Date(addr.dateAdded).getTime() : Date.now()
             }))
 
+            // Get security settings
+            const allSettings = await StorageService.getSettings() || {}
+            const securitySettings = allSettings.security_settings || {}
+
             // Get settings
             const settings: BackupSettings = {
                 theme: localStorage.getItem('theme') || 'system',
                 currency: localStorage.getItem('currency') || 'USD',
                 notifications: localStorage.getItem('notifications') !== 'false',
                 autoLock: localStorage.getItem('autoLock') === 'true',
-                lockTimeout: parseInt(localStorage.getItem('lockTimeout') || '300000')
+                lockTimeout: parseInt(localStorage.getItem('lockTimeout') || '300000'),
+                securitySettings: {
+                    biometric: {
+                        enabled: securitySettings?.biometric?.enabled || false,
+                        requireForTransactions: securitySettings?.biometric?.requireForTransactions || false,
+                        requireForExports: securitySettings?.biometric?.requireForExports || true
+                    },
+                    auditLog: {
+                        enabled: securitySettings?.auditLog?.enabled || true,
+                        retentionDays: securitySettings?.auditLog?.retentionDays || 30,
+                        maxEntries: securitySettings?.auditLog?.maxEntries || 1000
+                    }
+                },
+                preferences: allSettings.preferences || {}
             }
+
+            // Get transaction history
+            const transactions = await StorageService.getTransactionHistory()
+            const backupTransactions = transactions.map(tx => {
+                // Handle timestamp conversions safely
+                let timestamp: number;
+                if (tx.timestamp instanceof Date) {
+                    timestamp = tx.timestamp.getTime();
+                } else if (typeof tx.timestamp === 'number') {
+                    timestamp = tx.timestamp;
+                } else {
+                    timestamp = Date.now(); // Fallback
+                }
+
+                return {
+                    txid: tx.txid,
+                    amount: tx.amount,
+                    address: tx.address,
+                    fromAddress: tx.fromAddress,
+                    type: tx.type as 'send' | 'receive',
+                    timestamp,
+                    confirmations: tx.confirmations || 0,
+                    blockHeight: tx.blockHeight
+                };
+            })
+
+            // Get security audit log
+            const auditLog = allSettings.security_audit_log || []
+            const backupAuditLog = auditLog.map((entry: any) => {
+                // Ensure each field has a fallback value if missing
+                return {
+                    id: entry.id || `audit-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    timestamp: entry.timestamp || Date.now(),
+                    action: entry.action || 'unknown',
+                    details: entry.details || '',
+                    success: typeof entry.success === 'boolean' ? entry.success : true,
+                    walletAddress: entry.walletAddress || ''
+                };
+            })
 
             // Create metadata
             const metadata: BackupMetadata = {
@@ -59,7 +135,9 @@ export class BackupService {
                 wallets: backupWallets,
                 addressBook: backupAddresses,
                 settings,
-                metadata
+                metadata,
+                transactions: backupTransactions,
+                auditLog: backupAuditLog
             }
 
             return backup
@@ -197,6 +275,18 @@ export class BackupService {
             addressesCount = backup.addressBook.length
         }
 
+        // Validate transaction history
+        let transactionsCount = 0
+        if (Array.isArray(backup.transactions)) {
+            transactionsCount = backup.transactions.length
+        }
+
+        // Validate security audit log
+        let auditLogCount = 0
+        if (Array.isArray(backup.auditLog)) {
+            auditLogCount = backup.auditLog.length
+        }
+
         // Check timestamp validity
         if (backup.timestamp && backup.timestamp > Date.now()) {
             warnings.push('Backup timestamp is in the future')
@@ -209,7 +299,9 @@ export class BackupService {
             addressesCount,
             hasEncryptedData,
             errors,
-            warnings
+            warnings,
+            transactionsCount,
+            auditLogCount
         }
     }
 
@@ -229,6 +321,8 @@ export class BackupService {
             if (options.includeWallets && backup.wallets.length > 0) totalSteps++
             if (options.includeAddressBook && backup.addressBook.length > 0) totalSteps++
             if (options.includeSettings) totalSteps++
+            if (options.includeTransactions && backup.transactions && backup.transactions.length > 0) totalSteps++
+            if (options.includeSecurityAudit && backup.auditLog && backup.auditLog.length > 0) totalSteps++
 
             // Restore wallets
             if (options.includeWallets && backup.wallets.length > 0) {
@@ -242,13 +336,11 @@ export class BackupService {
                     }
 
                     // Create or update wallet
-                    // Note: For encrypted wallets, privateKey and mnemonic are already encrypted
-                    // and should be stored as-is. The user will decrypt them when accessing the wallet.
                     await StorageService.createWallet({
                         name: wallet.name,
                         address: wallet.address,
-                        privateKey: wallet.privateKey, // Already encrypted if wallet.isEncrypted is true
-                        mnemonic: wallet.mnemonic, // Already encrypted if wallet.isEncrypted is true
+                        privateKey: wallet.privateKey,
+                        mnemonic: wallet.mnemonic,
                         isEncrypted: wallet.isEncrypted,
                         makeActive: wallet.isActive
                     })
@@ -287,7 +379,96 @@ export class BackupService {
                 localStorage.setItem('notifications', backup.settings.notifications.toString())
                 localStorage.setItem('autoLock', backup.settings.autoLock.toString())
                 localStorage.setItem('lockTimeout', backup.settings.lockTimeout.toString())
+
+                // Restore security settings if available
+                if (backup.settings.securitySettings) {
+                    const allSettings = await StorageService.getSettings() || {}
+                    allSettings.security_settings = {
+                        biometric: backup.settings.securitySettings.biometric,
+                        auditLog: backup.settings.securitySettings.auditLog,
+                        autoLock: {
+                            enabled: backup.settings.autoLock,
+                            timeout: backup.settings.lockTimeout,
+                            biometricUnlock: backup.settings.securitySettings.biometric.enabled,
+                            requirePasswordAfterTimeout: true
+                        }
+                    }
+                    await StorageService.setSettings(allSettings)
+                }
+
+                // We can't directly restore preferences as the method is private
+                // The important preferences are already handled via specific settings
                 currentStep++
+            }
+
+            // Restore transaction history
+            if (options.includeTransactions && backup.transactions && backup.transactions.length > 0) {
+                onProgress?.('Restoring transaction history...', (currentStep / totalSteps) * 100)
+
+                // Clear existing transactions if overwriteExisting is true
+                if (options.overwriteExisting) {
+                    await StorageService.clearTransactionHistory()
+                }
+
+                for (const tx of backup.transactions) {
+                    await StorageService.saveTransaction({
+                        txid: tx.txid,
+                        amount: tx.amount,
+                        address: tx.address,
+                        fromAddress: tx.fromAddress,
+                        type: tx.type,
+                        timestamp: new Date(tx.timestamp),
+                        confirmations: tx.confirmations,
+                        blockHeight: tx.blockHeight
+                    })
+                }
+                currentStep++
+            }
+
+            // Restore security audit log
+            if (options.includeSecurityAudit && backup.auditLog && backup.auditLog.length > 0) {
+                onProgress?.('Restoring security audit log...', (currentStep / totalSteps) * 100)
+
+                const settings = await StorageService.getSettings() || {}
+                settings.security_audit_log = backup.auditLog.map(entry => ({
+                    id: entry.id,
+                    timestamp: entry.timestamp,
+                    action: entry.action,
+                    details: entry.details,
+                    success: entry.success,
+                    walletAddress: entry.walletAddress
+                }))
+                await StorageService.setSettings(settings)
+                currentStep++
+            }
+
+            // Handle biometric information
+            if (options.includeWallets && backup.wallets.length > 0) {
+                // Create an array of wallets that had biometrics enabled in the backup
+                const walletsWithBiometrics = backup.wallets
+                    .filter(wallet => wallet.biometricEnabled)
+                    .map(wallet => wallet.name);
+
+                // Store this information in settings for possible notification to the user
+                if (walletsWithBiometrics.length > 0) {
+                    const allSettings = await StorageService.getSettings() || {}
+                    allSettings.wallets_needing_biometric_setup = walletsWithBiometrics
+                    await StorageService.setSettings(allSettings)
+
+                    console.info(
+                        `The following wallets had biometrics enabled in the backup ` +
+                        `and need to be set up again: ${walletsWithBiometrics.join(', ')}`
+                    )
+                }
+
+                // IMPORTANT: We deliberately do NOT restore any of these biometric-specific items:
+                // - biometricWalletPasswords (contains encrypted passwords unlocked by biometrics)
+                // - biometricWalletCredentials (contains device-specific credential IDs)
+                // - biometricCredentialId (legacy device-specific identifier)
+                // - biometricWalletAddress (references specific wallet with biometrics)
+                //
+                // These are all device-specific and won't function correctly on a different device.
+                // Users will need to set up biometrics again on the new device.
             }
 
             onProgress?.('Restore completed!', 100)
@@ -311,8 +492,11 @@ export class BackupService {
                 currency: 'USD',
                 notifications: true,
                 autoLock: false,
-                lockTimeout: 300000
+                lockTimeout: 300000,
+                securitySettings: fullBackup.settings.securitySettings // Preserve security settings
             },
+            transactions: [], // No transaction history for security
+            auditLog: [], // No audit log for security
             metadata: {
                 ...fullBackup.metadata,
                 backupType: 'wallets-only'
@@ -353,9 +537,20 @@ export class BackupService {
         walletsCount: number
         addressesCount: number
         hasEncryptedWallets: boolean
+        transactionsCount: number
+        hasAuditLog: boolean
+        hasBiometricData: boolean
         backupType: string
     } {
         const encryptedWallets = backup.wallets.filter(w => w.isEncrypted)
+        const walletsWithBiometrics = backup.wallets.filter(w => w.biometricEnabled)
+
+        // Get names of wallets that had biometrics for display purposes
+        let biometricInfo = '';
+        if (walletsWithBiometrics.length > 0) {
+            const walletNames = walletsWithBiometrics.map(w => w.name).join(', ');
+            biometricInfo = `Wallets with biometrics: ${walletNames} (requires setup after restore)`;
+        }
 
         return {
             version: backup.version,
@@ -363,7 +558,43 @@ export class BackupService {
             walletsCount: backup.wallets.length,
             addressesCount: backup.addressBook.length,
             hasEncryptedWallets: encryptedWallets.length > 0,
+            transactionsCount: backup.transactions?.length || 0,
+            hasAuditLog: (backup.auditLog?.length || 0) > 0,
+            hasBiometricData: walletsWithBiometrics.length > 0, // Keep original property name
             backupType: backup.metadata.backupType
+        }
+    }
+
+    /**
+     * Get wallets that need biometric setup after restore
+     * This helps the UI inform users which wallets previously had biometrics enabled
+     * in the backup but need to be set up again on the new device
+     */
+    static async getWalletsNeedingBiometricSetup(): Promise<string[]> {
+        try {
+            const settings = await StorageService.getSettings() || {}
+            return settings.wallets_needing_biometric_setup || []
+        } catch (error) {
+            console.error('Failed to get wallets needing biometric setup:', error)
+            return []
+        }
+    }
+
+    /**
+     * Clear the list of wallets needing biometric setup
+     * Call this after a wallet has had its biometrics set up again
+     */
+    static async clearWalletNeedingBiometricSetup(walletName: string): Promise<void> {
+        try {
+            const settings = await StorageService.getSettings() || {}
+            const walletsList = settings.wallets_needing_biometric_setup || []
+
+            if (walletsList.includes(walletName)) {
+                settings.wallets_needing_biometric_setup = walletsList.filter((name: string) => name !== walletName)
+                await StorageService.setSettings(settings)
+            }
+        } catch (error) {
+            console.error('Failed to clear wallet from biometric setup list:', error)
         }
     }
 }

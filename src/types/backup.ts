@@ -5,6 +5,30 @@ export interface WalletBackup {
     addressBook: BackupAddress[]
     settings: BackupSettings
     metadata: BackupMetadata
+    transactions?: BackupTransaction[] // Add transaction history
+    auditLog?: BackupSecurityAudit[] // Add security audit log
+}
+
+// Define transaction structure for backup
+export interface BackupTransaction {
+    txid: string
+    amount: number
+    address: string
+    fromAddress?: string
+    type: 'send' | 'receive'
+    timestamp: number
+    confirmations: number
+    blockHeight?: number
+}
+
+// Define security audit entry for backup
+export interface BackupSecurityAudit {
+    id: string
+    timestamp: number
+    action: string
+    details: string
+    success: boolean
+    walletAddress?: string
 }
 
 export interface BackupWallet {
@@ -16,6 +40,7 @@ export interface BackupWallet {
     isEncrypted: boolean
     isActive: boolean
     createdAt: number
+    biometricEnabled?: boolean // Flag indicating if biometrics are enabled for this wallet
 }
 
 export interface BackupAddress {
@@ -34,6 +59,19 @@ export interface BackupSettings {
     notifications: boolean
     autoLock: boolean
     lockTimeout: number
+    securitySettings?: {
+        biometric: {
+            enabled: boolean
+            requireForTransactions: boolean
+            requireForExports: boolean
+        }
+        auditLog: {
+            enabled: boolean
+            retentionDays: number
+            maxEntries: number
+        }
+    }
+    preferences?: Record<string, any> // For other app preferences
 }
 
 export interface BackupMetadata {
@@ -47,6 +85,8 @@ export interface RestoreOptions {
     includeWallets: boolean
     includeAddressBook: boolean
     includeSettings: boolean
+    includeTransactions?: boolean
+    includeSecurityAudit?: boolean
     overwriteExisting: boolean
     password?: string
 }
@@ -57,6 +97,8 @@ export interface BackupValidationResult {
     walletsCount: number
     addressesCount: number
     hasEncryptedData: boolean
+    transactionsCount?: number
+    auditLogCount?: number
     errors: string[]
     warnings: string[]
 }

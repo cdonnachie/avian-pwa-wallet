@@ -12,6 +12,7 @@ export interface BiometricAuthResult {
     success: boolean
     error?: string
     biometricType?: BiometricType
+    walletPassword?: string  // The stored wallet password for unlocking
 }
 
 export interface TermsAcceptance {
@@ -36,6 +37,7 @@ export type SecurityAction =
     | 'wallet_unlock'
     | 'wallet_lock'
     | 'biometric_auth'
+    | 'biometric_setup'
     | 'password_auth'
     | 'transaction_sign'
     | 'backup_create'

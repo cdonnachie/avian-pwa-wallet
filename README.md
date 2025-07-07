@@ -6,16 +6,18 @@ A Progressive Web App (PWA) implementation of the Avian cryptocurrency wallet, b
 
 - 🔐 **Secure Wallet Management**: Generate, import, and manage Avian wallets
 - 🔒 **Encryption Support**: Optional password-based wallet encryption
-- 💸 **Send Transactions**: Send AVN to any valid Avian address
+- � **Biometric Authentication**: Face ID, Touch ID, and Windows Hello support
+- �💸 **Send Transactions**: Send AVN to any valid Avian address
 - 📱 **Receive Payments**: QR code generation for easy payment requests
 - 📊 **Balance Tracking**: Real-time balance updates
+- 💾 **Comprehensive Backup**: Full wallet backup with security settings
 - 🌐 **Progressive Web App**: Installable, offline-capable application
 - 🎨 **Modern UI**: Clean, responsive design with dark mode support
 - 🔧 **Wallet Settings**: Comprehensive wallet management tools
 
 ## Technology Stack
 
-- **Framework**: Next.js 14 with App Router
+- **Framework**: Next.js 15 with App Router
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS
 - **PWA**: next-pwa for service worker and manifest
@@ -23,6 +25,8 @@ A Progressive Web App (PWA) implementation of the Avian cryptocurrency wallet, b
 - **QR Codes**: qrcode library for address display
 - **Icons**: Lucide React icons
 - **Encryption**: CryptoJS for wallet security
+- **Authentication**: WebAuthn/FIDO2 for biometric authentication
+- **Storage**: IndexedDB for persistent data storage
 
 ## Getting Started
 
@@ -78,7 +82,9 @@ src/
 ├── services/              # Business logic
 │   ├── WalletService.ts   # Core wallet operations
 │   ├── StorageService.ts  # Browser storage abstraction
-│   └── ElectrumService.ts # Blockchain communication
+│   ├── ElectrumService.ts # Blockchain communication
+│   ├── SecurityService.ts # Authentication and security
+│   └── BackupService.ts   # Wallet backup and restore
 └── types/                 # TypeScript type definitions
 ```
 
@@ -102,8 +108,12 @@ src/
 
 - Client-side private key storage
 - Optional AES encryption with user passwords
+- Biometric authentication (Face ID, Touch ID, Windows Hello)
+- Per-wallet biometric security configuration
+- Security audit logging for sensitive operations
 - Secure key generation using bitcoinjs-lib
 - No private keys transmitted over network
+- Comprehensive backup and restore with security settings
 
 ### PWA Features
 
@@ -111,6 +121,30 @@ src/
 - Offline functionality for wallet operations
 - Background sync capabilities
 - Native app-like experience
+
+### Biometric Authentication
+
+- Hardware-backed biometric security (WebAuthn/FIDO2)
+- Support for Face ID, Touch ID, Windows Hello, and Android biometrics
+- Per-wallet biometric configuration
+- Optional biometric requirements for transactions and exports
+- Device-specific implementation (biometrics require re-setup after restore on a new device)
+- Global and per-wallet security settings
+
+### Backup and Restore
+
+- Comprehensive wallet backup including:
+  - Multiple wallet configurations
+  - Address book entries
+  - Security settings and preferences
+  - Transaction history
+  - Security audit log
+- Optional backup encryption with AES
+- Backup validation and integrity checking
+- Multiple backup types (full backup, wallets-only)
+- Selective restore options (wallets, address book, settings, etc.)
+- Portable backups for cross-device migration
+- Biometric status tracking for wallets after restore
 
 ## Configuration
 
@@ -186,6 +220,14 @@ This wallet is designed for small amounts and testing purposes. For large amount
 - Verify all transactions carefully
 - Keep backups of your private keys
 - Use strong passwords for encryption
+- Enable biometric authentication where available
+
+### Biometric Security Notes
+
+- Biometric credentials are device-specific and cannot be transferred between devices
+- After restoring a backup on a new device, biometrics must be set up again
+- Biometrics provide an additional security layer, but are not a replacement for strong passwords
+- The app maintains information about which wallets had biometrics enabled to guide re-setup
 
 ## License
 
@@ -195,15 +237,17 @@ MIT License - see LICENSE file for details
 
 For issues and questions:
 
-- GitHub Issues: [Repository Issues](https://github.com/your-repo/issues)
+- GitHub Issues: [Repository Issues](https://github.com/cdonnachie/avian-flightdeck/issues)
 - Community: Avian Network Discord/Telegram
 
 ## Roadmap
 
-- [ ] Transaction history display
+- [x] Transaction history display
+- [x] Biometric authentication
+- [x] Comprehensive backup/restore system
+- [x] Security audit logging
 - [ ] Multi-language support
 - [ ] Hardware wallet integration
 - [ ] Advanced fee estimation
 - [ ] Backup/restore via QR codes
 - [ ] Multi-signature support
-- [ ] Desktop app packaging

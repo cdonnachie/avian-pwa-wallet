@@ -1,3 +1,6 @@
+// Required imports
+import * as CryptoJS from 'crypto-js';
+
 interface WalletData {
     id?: number
     name: string
@@ -31,7 +34,7 @@ interface PreferenceData {
 
 export class StorageService {
     private static dbName = 'AvianWalletDB'
-    private static dbVersion = 2  // Increment version to add fromAddress index
+    private static dbVersion = 2
     private static db: IDBDatabase | null = null
 
     // Initialize IndexedDB
@@ -904,6 +907,201 @@ export class StorageService {
         } catch (error) {
             console.error('Failed to search addresses:', error)
             return []
+        }
+    }
+
+    // Biometric Authentication Storage
+    static async setBiometricCredential(credentialId: number[], walletAddress?: string): Promise<void> {
+        try {
+            if (walletAddress) {
+                // Store credential for a specific wallet
+                let walletCredentials = await this.getPreference('biometricWalletCredentials') as Record<string, number[]> || {}
+                walletCredentials[walletAddress] = credentialId
+                await this.setPreference('biometricWalletCredentials', walletCredentials)
+            }
+
+            // Also store as the current default credential (for backwards compatibility and global usage)
+            await this.setPreference('biometricCredentialId', credentialId)
+        } catch (error) {
+            console.error('Failed to store biometric credential:', error)
+            throw error
+        }
+    }
+
+    static async getBiometricCredential(walletAddress?: string): Promise<number[] | null> {
+        try {
+            if (walletAddress) {
+                // Try to get wallet-specific credential first
+                const walletCredentials = await this.getPreference('biometricWalletCredentials') as Record<string, number[]> || {}
+                if (walletCredentials[walletAddress]) {
+                    return walletCredentials[walletAddress]
+                }
+            }
+
+            // Fall back to the default credential if no wallet-specific one found
+            const result = await this.getPreference('biometricCredentialId')
+            return result as number[] | null
+        } catch (error) {
+            console.error('Failed to retrieve biometric credential:', error)
+            return null
+        }
+    }
+
+    static async removeBiometricCredential(walletAddress?: string): Promise<void> {
+        try {
+            if (walletAddress) {
+                // Remove credential for a specific wallet
+                const walletCredentials = await this.getPreference('biometricWalletCredentials') as Record<string, number[]> || {}
+
+                if (walletCredentials[walletAddress]) {
+                    delete walletCredentials[walletAddress]
+                    await this.setPreference('biometricWalletCredentials', walletCredentials)
+                }
+
+                // If this is the active wallet, also remove the default credential
+                const activeWallet = await this.getActiveWallet()
+                if (activeWallet && activeWallet.address === walletAddress) {
+                    await this.removePreference('biometricCredentialId')
+                }
+            } else {
+                // Remove all credentials
+                await this.removePreference('biometricCredentialId')
+                await this.removePreference('biometricWalletCredentials')
+            }
+        } catch (error) {
+            console.error('Failed to remove biometric credential:', error)
+            throw error
+        }
+    }
+
+    static async setBiometricEnabled(enabled: boolean): Promise<void> {
+        try {
+            await this.setPreference('biometricEnabled', enabled)
+        } catch (error) {
+            console.error('Failed to set biometric enabled status:', error)
+            throw error
+        }
+    }
+
+    static async isBiometricEnabled(): Promise<boolean> {
+        try {
+            const result = await this.getPreference('biometricEnabled')
+            return result === true
+        } catch (error) {
+            console.error('Failed to get biometric enabled status:', error)
+            return false
+        }
+    }
+
+    static async isBiometricEnabledForWallet(walletAddress: string): Promise<boolean> {
+        try {
+            // Check if biometrics are enabled at all
+            const isEnabled = await this.isBiometricEnabled()
+            if (!isEnabled) {
+                return false
+            }
+
+            // Check for wallet-specific credential
+            const walletCredentials = await this.getPreference('biometricWalletCredentials') as Record<string, number[]> || {}
+            const hasCredential = !!walletCredentials[walletAddress]
+
+            // Get the wallet password mappings
+            const walletPasswords = await this.getPreference('biometricWalletPasswords') as Record<string, string> || {}
+            const hasPassword = !!walletPasswords[walletAddress]
+
+            // A wallet has biometrics enabled if it has both a credential and a stored password
+            return hasCredential && hasPassword
+        } catch (error) {
+            console.error('Error checking if biometrics are enabled for wallet:', error)
+            return false
+        }
+    }
+
+    private static async removePreference(key: string): Promise<void> {
+        try {
+            const existing = await this.performTransaction('preferences', 'readonly', (store) =>
+                store.index('key').get(key)
+            )
+
+            if (existing) {
+                await this.performTransaction('preferences', 'readwrite', (store) =>
+                    store.delete(existing.id)
+                )
+            }
+        } catch (error) {
+            console.error('Failed to remove preference:', error)
+            throw error
+        }
+    }
+
+    static async setEncryptedWalletPassword(secureKey: string, password: string, walletAddress: string): Promise<void> {
+        try {
+            // Use AES encryption to secure the password
+            const encryptedPassword = CryptoJS.AES.encrypt(password, secureKey).toString()
+
+            // Get existing wallet-password mappings or create a new one
+            let walletPasswords = await this.getPreference('biometricWalletPasswords') as Record<string, string> || {}
+
+            // Store this wallet's encrypted password
+            walletPasswords[walletAddress] = encryptedPassword
+
+            // Store the updated wallet password mappings
+            await this.setPreference('biometricWalletPasswords', walletPasswords)
+
+            // Also store the wallet address for which biometrics are set up
+            await this.setPreference('biometricWalletAddress', walletAddress)
+        } catch (error) {
+            console.error('Failed to store encrypted wallet password:', error)
+            throw error
+        }
+    }
+
+    static async getEncryptedWalletPassword(secureKey: string, walletAddress: string): Promise<string | null> {
+        try {
+            // Get the wallet password mappings
+            const walletPasswords = await this.getPreference('biometricWalletPasswords') as Record<string, string> || {}
+
+            // Get the encrypted password for this specific wallet
+            const encryptedPassword = walletPasswords[walletAddress]
+
+            if (!encryptedPassword) {
+                console.warn(`No biometric password found for wallet: ${walletAddress}`)
+                return null
+            }
+
+            // Decrypt the password using the secure key
+            const bytes = CryptoJS.AES.decrypt(encryptedPassword, secureKey)
+            return bytes.toString(CryptoJS.enc.Utf8)
+        } catch (error) {
+            console.error('Failed to retrieve encrypted wallet password:', error)
+            return null
+        }
+    }
+
+    static async removeEncryptedWalletPassword(walletAddress?: string): Promise<void> {
+        try {
+            if (walletAddress) {
+                // Remove password for a specific wallet
+                const walletPasswords = await this.getPreference('biometricWalletPasswords') as Record<string, string> || {}
+
+                if (walletPasswords[walletAddress]) {
+                    delete walletPasswords[walletAddress]
+                    await this.setPreference('biometricWalletPasswords', walletPasswords)
+                }
+
+                // If this was the current biometric wallet, remove that reference
+                const currentBiometricWallet = await this.getPreference('biometricWalletAddress') as string
+                if (currentBiometricWallet === walletAddress) {
+                    await this.removePreference('biometricWalletAddress')
+                }
+            } else {
+                // Remove all wallet passwords
+                await this.removePreference('biometricWalletPasswords')
+                await this.removePreference('biometricWalletAddress')
+            }
+        } catch (error) {
+            console.error('Failed to remove encrypted wallet password:', error)
+            throw error
         }
     }
 }

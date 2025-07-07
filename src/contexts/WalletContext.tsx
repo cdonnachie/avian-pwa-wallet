@@ -317,7 +317,6 @@ export function WalletProvider({ children }: WalletProviderProps) {
         try {
             const newBalance = await wallet.getBalance(address)
             setBalance(newBalance)
-            await StorageService.setLastBalance(newBalance)
         } catch (error) {
             console.error('Failed to update balance:', error)
         }

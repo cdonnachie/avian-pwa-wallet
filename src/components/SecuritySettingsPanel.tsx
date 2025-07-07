@@ -85,6 +85,9 @@ export default function SecuritySettingsPanel() {
         const updatedSettings = { ...settings, ...newSettings }
         setSettings(updatedSettings)
 
+        // Check if biometric settings have changed
+        const biometricSettingsChanged = newSettings.biometric !== undefined;
+
         // Clear existing timeout
         if (updateTimeoutRef.current) {
             clearTimeout(updateTimeoutRef.current)
@@ -95,6 +98,14 @@ export default function SecuritySettingsPanel() {
             setIsSaving(true)
             try {
                 await securityService.updateSecuritySettings(newSettings)
+
+                // If biometric settings changed, dispatch an event to notify other components
+                if (biometricSettingsChanged) {
+                    const event = new CustomEvent('security-settings-changed', {
+                        detail: { biometric: updatedSettings.biometric }
+                    });
+                    window.dispatchEvent(event);
+                }
 
                 showToast({
                     type: 'success',
