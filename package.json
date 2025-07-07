@@ -8,7 +8,8 @@
     "dev:ssl": "npm run ssl:setup && set HTTPS=true&& set ENABLE_PWA=true&& next dev -p 3001",
     "dev:pwa": "node scripts/dev-pwa.js",
     "ssl:setup": "node scripts/create-ssl-cert.js",
-    "build": "next build",
+    "build": "node scripts/build-pwa.js",
+    "build:next": "next build",
     "start": "next start",
     "start:https": "set HTTPS=true&& next start -p 3001",
     "lint": "next lint"

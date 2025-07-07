@@ -18,7 +18,7 @@ export default function SendForm() {
     const { requireAuth, wasBiometricAuth, storedWalletPassword } = useSecurity()
     const [toAddress, setToAddress] = useState('')
     const [amount, setAmount] = useState('')
-    const [password, setPassword] = useState(storedWalletPassword || '')
+    const [password, setPassword] = useState('')
     const [usingBiometricAuth, setUsingBiometricAuth] = useState(false)
     const [error, setError] = useState('')
     const [success, setSuccess] = useState('')
@@ -90,6 +90,11 @@ export default function SendForm() {
             return
         }
 
+        // Update UI state based on successful biometric authentication
+        if (authResult.password) {
+            setUsingBiometricAuth(true)
+        }
+
         // Use password from biometric authentication if available
         if (authResult.password) {
             setPassword(authResult.password)
@@ -140,7 +145,8 @@ export default function SendForm() {
         }
 
         // Check if we have a password when the wallet is encrypted
-        if (isEncrypted && !password) {
+        // Only show error if not using biometric auth (which would set the password)
+        if (isEncrypted && !password && !usingBiometricAuth) {
             setError('Password required for encrypted wallet')
             return
         }
@@ -211,6 +217,11 @@ export default function SendForm() {
                     errorMessage = 'Insufficient funds (including network fee)'
                 } else if (error.message.includes('Invalid password')) {
                     errorMessage = 'Invalid wallet password'
+                    // If password is invalid and we were using biometric auth, reset the flag
+                    if (usingBiometricAuth) {
+                        setUsingBiometricAuth(false);
+                        setPassword('');
+                    }
                 } else if (error.message.includes('No unspent')) {
                     errorMessage = 'No available funds to spend'
                 } else if (error.message.includes('broadcast')) {
@@ -329,6 +340,7 @@ export default function SendForm() {
                 // If we have a stored password from biometric auth, use it
                 if (shouldUseBiometric && storedWalletPassword) {
                     setPassword(storedWalletPassword);
+                    console.log("Setting password from stored biometric credentials");
                 }
             } catch (error) {
                 console.error("Error initializing biometric state:", error);
@@ -336,7 +348,15 @@ export default function SendForm() {
         };
 
         initializeBiometricState();
-    }, [wasBiometricAuth, storedWalletPassword])
+    }, [wasBiometricAuth, storedWalletPassword, isEncrypted])
+
+    // Initialize password state when component mounts
+    useEffect(() => {
+        if (storedWalletPassword) {
+            setPassword(storedWalletPassword);
+            setUsingBiometricAuth(wasBiometricAuth);
+        }
+    }, [storedWalletPassword, wasBiometricAuth]);
 
     useEffect(() => {
         // Auto-fill wallet's own address when using dust consolidation strategy
