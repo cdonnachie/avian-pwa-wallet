@@ -1,0 +1,16 @@
+                <svg width="400" height="400" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <filter id="blur" x="-50%" y="-50%" width="200%" height="200%">
+                            <feGaussianBlur in="SourceGraphic" stdDeviation="7" />
+                        </filter>
+                    </defs>
+                    <g opacity="0.7" filter="url(#blur)">
+                        <circle cx="80" cy="80" r="20" fill="white" />
+                        <circle cx="200" cy="100" r="15" fill="white" />
+                        <circle cx="300" cy="70" r="25" fill="white" />
+                        <circle cx="150" cy="200" r="20" fill="white" />
+                        <circle cx="320" cy="250" r="15" fill="white" />
+                        <circle cx="90" cy="300" r="25" fill="white" />
+                        <circle cx="270" cy="350" r="20" fill="white" />
+                    </g>
+                </svg>
