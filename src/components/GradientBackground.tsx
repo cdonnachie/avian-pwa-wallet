@@ -1,54 +1,39 @@
-'use client'
+'use client';
 
 /**
  * GradientBackground Component
- * 
+ *
  * Provides beautiful gradient backgrounds for the Avian FlightDeck app.
- * 
- * Variants:
- * - 'auto': Light gradient in light mode, dark gradient in dark mode (recommended)
- * - 'light': Always light gradient (blue/white)
- * - 'dark': Always dark gradient (gray/blue)
- * - 'avian-light': Avian-branded light gradient (avian colors)
- * - 'avian-dark': Avian-branded dark gradient (avian colors)
- * 
- * Usage:
- * <GradientBackground variant="auto">
- *   <YourContent />
- * </GradientBackground>
+ *
  */
 
 interface GradientBackgroundProps {
-    children: React.ReactNode
-    className?: string
-    variant?: 'light' | 'dark' | 'auto' | 'avian-light' | 'avian-dark'
+    children: React.ReactNode;
 }
 
 export default function GradientBackground({
     children,
-    className = '',
-    variant = 'auto'
 }: GradientBackgroundProps) {
-    const getGradientClasses = () => {
-        switch (variant) {
-            case 'light':
-                return 'bg-gradient-to-br from-blue-50 via-white to-blue-100'
-            case 'dark':
-                return 'bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900'
-            case 'avian-light':
-                return 'bg-gradient-to-br from-avian-50 via-white to-avian-100'
-            case 'avian-dark':
-                return 'bg-gradient-to-br from-gray-900 via-avian-800 to-blue-900'
-            case 'auto':
-            default:
-                // Auto variant - light gradient in light mode, dark gradient in dark mode
-                return 'bg-gradient-to-br from-avian-50 via-white to-sky-100 dark:from-gray-900 dark:via-blue-900 dark:to-gray-900'
-        }
-    }
-
     return (
-        <div className={`min-h-screen ${getGradientClasses()} ${className}`}>
-            {children}
+        <div className="min-h-screen w-full relative bg-white dark:bg-black">
+            {/* Light mode variant */}
+            <div
+                className="absolute inset-0 z-0 block dark:hidden"
+                style={{
+                    background: 'radial-gradient(145% 100% at 50% 100%, #ffffff 85%, #e6f7f8 100%)',
+                    backgroundSize: '100% 100%',
+                }}
+            />
+            {/* Dark mode variant */}
+            <div
+                className="absolute inset-0 z-0 dark:block hidden"
+                style={{
+                    background: 'radial-gradient(145% 100% at 50% 100%, #000000 50%, #2a737f 100%)',
+                    backgroundSize: '100% 100%',
+                }}
+            />
+            <div className="relative z-10">{children}</div>
         </div>
-    )
+    );
+
 }

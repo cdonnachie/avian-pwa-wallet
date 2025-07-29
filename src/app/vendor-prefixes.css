@@ -1,0 +1,73 @@
+/* CSS Vendor Prefixes for cross-browser compatibility */
+
+/*
+ * Add required vendor prefixes for various CSS properties
+ * to ensure better cross-browser compatibility
+ */
+
+/* Backdrop filter */
+@supports (backdrop-filter: none) {
+  .backdrop-blur {
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+}
+
+/* Mask image */
+.mask-image {
+  -webkit-mask-image: var(--mask-image, none);
+  mask-image: var(--mask-image, none);
+}
+
+/* User select */
+.user-select-none {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.user-select-text {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.user-select-all {
+  -webkit-user-select: all;
+  user-select: all;
+}
+
+/* Text size adjust */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Additional CSS fixes for browser compatibility */
+
+/* Smooth scrolling with reduced motion preference support */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Fix for iOS touch highlighting */
+a,
+button {
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+}
+
+/* Fix for Firefox focus outline */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Fix for iOS momentum scrolling */
+.overflow-scroll {
+  -webkit-overflow-scrolling: touch;
+  overflow-scrolling: touch;
+}

@@ -1,26 +1,33 @@
 /** @type {import('next').NextConfig} */
-const withPWA = require("next-pwa")({
-  dest: "public",
-  register: true, // Let next-pwa handle registration automatically
+const withPWA = require('next-pwa')({
+  dest: 'public',
+  register: true,
   skipWaiting: true,
-  disable: process.env.NODE_ENV === "development",
-  // Simplified caching config
+  disable: false,
+  buildExcludes: [/app-build-manifest\.json$/],
+  navigationPreload: true,
+  publicExcludes: ['**/api/**/*'],
   runtimeCaching: [
     {
       // cache any .wasm artifact
       urlPattern: /\.wasm$/,
-      handler: "StaleWhileRevalidate",
+      handler: 'StaleWhileRevalidate',
       options: {
-        cacheName: "wasm-cache",
+        cacheName: 'wasm-cache',
         expiration: { maxEntries: 10 },
       },
     },
     {
-      // Cache API responses
+      // Exclude API routes from service worker handling
+      urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
+      handler: 'NetworkOnly',
+    },
+    {
+      // Cache external API responses only
       urlPattern: /^https:\/\/api\./,
-      handler: "NetworkFirst",
+      handler: 'NetworkFirst',
       options: {
-        cacheName: "api-cache",
+        cacheName: 'external-api-cache',
         expiration: { maxEntries: 50, maxAgeSeconds: 300 },
       },
     },
@@ -37,26 +44,26 @@ const nextConfig = {
   compress: true,
   // Transpile ESM crypto libraries
   transpilePackages: [
-    "bitcoinjs-lib",
-    "ecpair",
-    "bip32",
-    "bip39",
-    "tiny-secp256k1",
-    "bs58check",
-    "bs58",
-    "base-x",
-    "wif",
-    "coinselect",
-    "bech32",
-    "typeforce",
-    "varuint-bitcoin",
-    "pushdata-bitcoin",
-    "bitcoin-ops",
-    "create-hash",
-    "create-hmac",
-    "randombytes",
-    "safe-buffer",
-    "secp256k1",
+    'bitcoinjs-lib',
+    'ecpair',
+    'bip32',
+    'bip39',
+    'tiny-secp256k1',
+    'bs58check',
+    'bs58',
+    'base-x',
+    'wif',
+    'coinselect',
+    'bech32',
+    'typeforce',
+    'varuint-bitcoin',
+    'pushdata-bitcoin',
+    'bitcoin-ops',
+    'create-hash',
+    'create-hmac',
+    'randombytes',
+    'safe-buffer',
+    'secp256k1',
   ],
   // Webpack configuration for WebAssembly support
   webpack: (config, { isServer }) => {
@@ -69,15 +76,15 @@ const nextConfig = {
 
     // Use node-polyfill-webpack-plugin for automatic Node.js core polyfills
     if (!isServer) {
-      const NodePolyfillPlugin = require("node-polyfill-webpack-plugin");
+      const NodePolyfillPlugin = require('node-polyfill-webpack-plugin');
       config.resolve.alias = {
         ...(config.resolve.alias || {}),
-        "tiny-secp256k1": require.resolve("@bitcoin-js/tiny-secp256k1-asmjs"),
+        'tiny-secp256k1': require.resolve('@bitcoin-js/tiny-secp256k1-asmjs'),
       };
       config.plugins.push(
         new NodePolyfillPlugin({
-          excludeAliases: ["console"], // Exclude console as it's natively available
-        })
+          excludeAliases: ['console'],
+        }),
       );
     }
 

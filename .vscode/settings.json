@@ -19,5 +19,6 @@
   },
   "files.associations": {
     "*.css": "tailwindcss"
-  }
+  },
+  "cmake.ignoreCMakeListsMissing": true
 }

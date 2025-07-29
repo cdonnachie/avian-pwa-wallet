@@ -9,6 +9,7 @@
   "theme_color": "#34e2d5",
   "orientation": "portrait-primary",
   "categories": ["finance", "productivity"],
+  "permissions": ["notifications"],
   "screenshots": [
     {
       "src": "screenshots/mobile-home.png",

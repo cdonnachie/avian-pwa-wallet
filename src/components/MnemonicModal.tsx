@@ -1,431 +1,556 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
-import { Eye, EyeOff, Copy, RefreshCw, Key, AlertTriangle } from 'lucide-react'
-import { useWallet } from '@/contexts/WalletContext'
-import { useSecurity } from '@/contexts/SecurityContext'
-import { useToast } from '@/components/Toast'
+import { useState, useEffect } from 'react';
+import { Eye, EyeOff, Copy, RefreshCw, Key, AlertTriangle, X } from 'lucide-react';
+import { useWallet } from '@/contexts/WalletContext';
+import { useSecurity } from '@/contexts/SecurityContext';
+import { toast } from 'sonner';
+import { useMediaQuery } from '@/hooks/use-media-query';
+
+// Shadcn UI components
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerClose,
+} from '@/components/ui/drawer';
 
 interface MnemonicModalProps {
-    isOpen: boolean
-    onClose: () => void
-    mode: 'export' | 'import'
+  isOpen: boolean;
+  onClose: () => void;
+  mode: 'export' | 'import';
 }
 
 export default function MnemonicModal({ isOpen, onClose, mode }: MnemonicModalProps) {
-    const {
-        exportMnemonic,
-        restoreWalletFromMnemonic,
-        validateMnemonic,
-        generateWallet,
-        isEncrypted
-    } = useWallet()
+  const isDesktop = useMediaQuery('(min-width: 768px)');
 
-    const { showToast } = useToast()
-    const { requireAuth } = useSecurity()
+  const {
+    exportMnemonic,
+    restoreWalletFromMnemonic,
+    validateMnemonic,
+    generateWallet,
+    isEncrypted,
+  } = useWallet();
 
-    const [password, setPassword] = useState('')
-    const [mnemonic, setMnemonic] = useState('')
-    const [importMnemonic, setImportMnemonic] = useState('')
-    const [newPassword, setNewPassword] = useState('')
-    const [confirmPassword, setConfirmPassword] = useState('')
-    const [showMnemonic, setShowMnemonic] = useState(false)
-    const [showPassword, setShowPassword] = useState(false)
-    const [error, setError] = useState('')
-    const [isLoading, setIsLoading] = useState(false)
-    const [isValidMnemonic, setIsValidMnemonic] = useState<boolean | null>(null)
+  const { requireAuth } = useSecurity();
 
-    const resetForm = () => {
-        setPassword('')
-        setMnemonic('')
-        setImportMnemonic('')
-        setNewPassword('')
-        setConfirmPassword('')
-        setShowMnemonic(false)
-        setShowPassword(false)
-        setError('')
-        setIsValidMnemonic(null)
+  const [mnemonic, setMnemonic] = useState('');
+  const [importMnemonic, setImportMnemonic] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showMnemonic, setShowMnemonic] = useState(false);
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isValidMnemonic, setIsValidMnemonic] = useState<boolean | null>(null);
+  const [hasBip39Passphrase, setHasBip39Passphrase] = useState(false);
+  const [showPassphraseOption, setShowPassphraseOption] = useState(false);
+  const [decryptedPassphrase, setDecryptedPassphrase] = useState('');
+  const [isLoadingPassphrase, setIsLoadingPassphrase] = useState(false);
+
+  const resetForm = () => {
+    setMnemonic('');
+    setImportMnemonic('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setShowMnemonic(false);
+    setError('');
+    setIsValidMnemonic(null);
+    setHasBip39Passphrase(false);
+    setShowPassphraseOption(false);
+    setDecryptedPassphrase('');
+    setIsLoadingPassphrase(false);
+  };
+
+  const handleClose = () => {
+    resetForm();
+    onClose();
+  };
+
+  // Export mnemonic functionality
+  const handleExportMnemonic = async () => {
+    try {
+      setIsLoading(true);
+      setError('');
+
+      // Use the requireAuth function from SecurityContext
+      const authResult = await requireAuth('Please authenticate to view mnemonic phrase');
+
+      if (!authResult.success || !authResult.password) {
+        // Authentication was canceled or failed in the dialog
+        toast.error('Authentication failed', {
+          description: 'You must authenticate to view the mnemonic phrase',
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Check if wallet has BIP39 passphrase before exporting mnemonic
+      try {
+        const { StorageService } = await import('@/services/core/StorageService');
+        const activeWallet = await StorageService.getActiveWallet();
+        setHasBip39Passphrase(!!activeWallet?.bip39Passphrase);
+      } catch (err) {
+        // If we can't check, assume no passphrase
+        setHasBip39Passphrase(false);
+      }
+
+      // Use the password provided from the authentication
+      const exportedMnemonic = await exportMnemonic(isEncrypted ? authResult.password : undefined);
+
+      if (!exportedMnemonic) {
+        setError('No mnemonic found. This wallet was created without BIP39 support.');
+        return;
+      }
+
+      setMnemonic(exportedMnemonic);
+      toast.success('Mnemonic exported', {
+        description: 'Your mnemonic phrase has been successfully exported',
+      });
+    } catch (error: any) {
+      setError(error.message || 'Failed to export mnemonic');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Export BIP39 passphrase functionality
+  const handleExportPassphrase = async () => {
+    try {
+      setIsLoadingPassphrase(true);
+      setError('');
+
+      // Require separate authentication for passphrase access
+      const authResult = await requireAuth(
+        'Please authenticate to view your BIP39 passphrase (25th word)',
+      );
+
+      if (!authResult.success || !authResult.password) {
+        toast.error('Authentication failed', {
+          description: 'You must authenticate to view the BIP39 passphrase',
+        });
+        setIsLoadingPassphrase(false);
+        return;
+      }
+
+      // Get and decrypt the passphrase
+      const { StorageService } = await import('@/services/core/StorageService');
+      const activeWallet = await StorageService.getActiveWallet();
+
+      if (!activeWallet?.bip39Passphrase) {
+        setError('No BIP39 passphrase found for this wallet');
+        return;
+      }
+
+      // Decrypt the passphrase
+      const { decryptData } = await import('@/services/wallet/WalletService');
+      const result = await decryptData(activeWallet.bip39Passphrase, authResult.password);
+      const decrypted = result.decrypted;
+
+      setDecryptedPassphrase(decrypted);
+      setShowPassphraseOption(true);
+
+      toast.success('Passphrase decrypted', {
+        description: 'Your BIP39 passphrase has been decrypted and is now visible',
+      });
+    } catch (error: any) {
+      setError(error.message || 'Failed to decrypt BIP39 passphrase');
+    } finally {
+      setIsLoadingPassphrase(false);
+    }
+  };
+
+  // Import mnemonic functionality
+  const handleValidateMnemonic = async (mnemonicToValidate: string) => {
+    if (!mnemonicToValidate.trim()) {
+      setIsValidMnemonic(null);
+      return;
     }
 
-    const handleClose = () => {
-        resetForm()
-        onClose()
+    try {
+      const valid = await validateMnemonic(mnemonicToValidate.trim());
+      setIsValidMnemonic(valid);
+      if (!valid) {
+        setError('Invalid BIP39 mnemonic phrase');
+      } else {
+        setError('');
+      }
+    } catch (error) {
+      setIsValidMnemonic(false);
+      setError('Error validating mnemonic');
+    }
+  };
+
+  const handleImportMnemonic = async () => {
+    if (!importMnemonic.trim()) {
+      setError('Please enter a mnemonic phrase');
+      return;
     }
 
-    // Export mnemonic functionality
-    const handleExportMnemonic = async () => {
-        // Require authentication for sensitive operation
-        const authRequired = await requireAuth()
-        if (!authRequired) {
-            setError('Authentication required for this operation')
-            return
-        }
-
-        if (isEncrypted && !password) {
-            setError('Password required for encrypted wallet')
-            return
-        }
-
-        try {
-            setIsLoading(true)
-            setError('')
-            const exportedMnemonic = await exportMnemonic(isEncrypted ? password : undefined)
-
-            if (!exportedMnemonic) {
-                setError('No mnemonic found. This wallet was created without BIP39 support.')
-                return
-            }
-
-            setMnemonic(exportedMnemonic)
-            showToast({
-                type: 'success',
-                title: 'Mnemonic exported!',
-                message: 'Your recovery phrase is now displayed'
-            })
-        } catch (error: any) {
-            setError(error.message || 'Failed to export mnemonic')
-        } finally {
-            setIsLoading(false)
-        }
+    if (isValidMnemonic === false) {
+      setError('Please enter a valid BIP39 mnemonic phrase');
+      return;
     }
 
-    // Import mnemonic functionality
-    const handleValidateMnemonic = async (mnemonicToValidate: string) => {
-        if (!mnemonicToValidate.trim()) {
-            setIsValidMnemonic(null)
-            return
-        }
-
-        try {
-            const valid = await validateMnemonic(mnemonicToValidate.trim())
-            setIsValidMnemonic(valid)
-            if (!valid) {
-                setError('Invalid BIP39 mnemonic phrase')
-            } else {
-                setError('')
-            }
-        } catch (error) {
-            setIsValidMnemonic(false)
-            setError('Error validating mnemonic')
-        }
+    // Password is now mandatory
+    if (!newPassword || newPassword.length < 8) {
+      setError('Password is required and must be at least 8 characters long');
+      return;
     }
 
-    const handleImportMnemonic = async () => {
-        if (!importMnemonic.trim()) {
-            setError('Please enter a mnemonic phrase')
-            return
-        }
-
-        if (isValidMnemonic === false) {
-            setError('Please enter a valid BIP39 mnemonic phrase')
-            return
-        }
-
-        // Password is now mandatory
-        if (!newPassword || newPassword.length < 8) {
-            setError('Password is required and must be at least 8 characters long')
-            return
-        }
-
-        if (newPassword !== confirmPassword) {
-            setError('Passwords do not match')
-            return
-        }
-
-        try {
-            setIsLoading(true)
-            setError('')
-            await restoreWalletFromMnemonic(importMnemonic.trim(), newPassword)
-            showToast({
-                type: 'success',
-                title: 'Wallet restored!',
-                message: 'Your wallet has been restored from the mnemonic phrase'
-            })
-
-            // Close modal and reload page after short delay
-            setTimeout(() => {
-                handleClose()
-                window.location.reload()
-            }, 2000)
-        } catch (error: any) {
-            setError(error.message || 'Failed to restore wallet from mnemonic')
-        } finally {
-            setIsLoading(false)
-        }
+    if (newPassword !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
     }
 
-    const handleGenerateNewWallet = async () => {
-        // Password is now mandatory
-        if (!newPassword || newPassword.length < 8) {
-            setError('Password is required and must be at least 8 characters long')
-            return
-        }
+    try {
+      setIsLoading(true);
+      setError('');
+      await restoreWalletFromMnemonic('Imported Wallet', importMnemonic.trim(), newPassword);
+      toast.success('Wallet imported', {
+        description: 'Your wallet has been successfully restored from the mnemonic phrase',
+      });
 
-        if (newPassword !== confirmPassword) {
-            setError('Passwords do not match')
-            return
-        }
+      // Close modal and reload page after short delay
+      setTimeout(() => {
+        handleClose();
+        window.location.reload();
+      }, 2000);
+    } catch (error: any) {
+      setError(error.message || 'Failed to restore wallet from mnemonic');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-        try {
-            setIsLoading(true)
-            setError('')
-            await generateWallet(newPassword, true) // Generate with mnemonic (password now required)
-            showToast({
-                type: 'success',
-                title: 'New wallet created!',
-                message: 'A new wallet with mnemonic phrase has been generated'
-            })
-
-            // Close modal and reload page after short delay
-            setTimeout(() => {
-                handleClose()
-                window.location.reload()
-            }, 2000)
-        } catch (error: any) {
-            setError(error.message || 'Failed to generate new wallet')
-        } finally {
-            setIsLoading(false)
-        }
+  const handleGenerateNewWallet = async () => {
+    // Password is now mandatory
+    if (!newPassword || newPassword.length < 8) {
+      setError('Password is required and must be at least 8 characters long');
+      return;
     }
 
-    const copyToClipboard = async (text: string) => {
-        try {
-            await navigator.clipboard.writeText(text)
-            showToast({
-                type: 'success',
-                title: 'Copied to clipboard!',
-                message: 'Mnemonic phrase copied successfully'
-            })
-        } catch (error) {
-            setError('Failed to copy to clipboard')
-        }
+    if (newPassword !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
     }
 
-    if (!isOpen) return null
+    try {
+      setIsLoading(true);
+      setError('');
+      await generateWallet(newPassword, true);
+      toast.success('New wallet created', {
+        description: 'A new wallet with mnemonic phrase has been generated',
+      });
 
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
-                <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-                        <Key className="w-5 h-5 mr-2 text-avian-orange" />
-                        {mode === 'export' ? 'Export' : 'Import'} Mnemonic Phrase
-                    </h3>
-                    <button
-                        onClick={handleClose}
-                        className="text-gray-400 hover:text-gray-600 dark:text-gray-300 dark:hover:text-gray-100"
-                    >
-                        ×
-                    </button>
+      // Close modal and reload page after short delay
+      setTimeout(() => {
+        handleClose();
+        window.location.reload();
+      }, 2000);
+    } catch (error: any) {
+      setError(error.message || 'Failed to generate new wallet');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const copyToClipboard = async (text: string, type: string = 'Mnemonic phrase') => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success('Copied to clipboard', {
+        description: `${type} copied successfully`,
+      });
+    } catch (error) {
+      setError('Failed to copy to clipboard');
+    }
+  };
+
+  // Render based on device size
+  if (!isOpen) return null;
+
+  const title = `${mode === 'export' ? 'Export' : 'Import'} Mnemonic Phrase`;
+
+  // The content to be shown in both dialog and drawer
+  const content = (
+    <div className="space-y-4">
+      {mode === 'export' ? (
+        // Export Mode
+        <div className="space-y-4">
+          <Alert className="bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-700">
+            <AlertTriangle className="h-5 w-5" />
+            <AlertTitle>Security Warning</AlertTitle>
+            <AlertDescription>
+              Your mnemonic phrase provides complete access to your wallet. Never share it with
+              anyone and store it securely offline.
+            </AlertDescription>
+          </Alert>
+
+          {/* Authentication dialog is used instead of inline password field */}
+
+          {!mnemonic ? (
+            <Button
+              onClick={handleExportMnemonic}
+              disabled={isLoading}
+              className="w-full bg-avian-orange hover:bg-avian-orange/90"
+            >
+              {isLoading ? (
+                <RefreshCw className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <Key className="w-4 h-4 mr-2" />
+              )}
+              Export Mnemonic
+            </Button>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="block text-sm font-medium">
+                    Your Mnemonic Phrase ({mnemonic.split(' ').length} words)
+                  </span>
+                  <Button
+                    onClick={() => setShowMnemonic(!showMnemonic)}
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 text-sm"
+                  >
+                    {showMnemonic ? (
+                      <>
+                        <EyeOff className="w-4 h-4 mr-1" />
+                        Hide
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="w-4 h-4 mr-1" />
+                        Show
+                      </>
+                    )}
+                  </Button>
                 </div>
 
-                {mode === 'export' ? (
-                    // Export Mode
-                    <div className="space-y-4">
-                        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4">
-                            <div className="flex items-start">
-                                <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 mr-2 mt-0.5 flex-shrink-0" />
-                                <div className="text-sm text-yellow-800 dark:text-yellow-200">
-                                    <p className="font-semibold mb-1">Security Warning</p>
-                                    <p>Your mnemonic phrase provides complete access to your wallet. Never share it with anyone and store it securely offline.</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {isEncrypted && (
-                            <div className="space-y-2">
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    Wallet Password
-                                </label>
-                                <div className="relative">
-                                    <input
-                                        type={showPassword ? 'text' : 'password'}
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-avian-orange focus:border-transparent pr-10 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                        placeholder="Enter wallet password"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute right-2 top-2 text-gray-400 hover:text-gray-600 dark:text-gray-300 dark:hover:text-gray-100"
-                                    >
-                                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-
-                        {!mnemonic ? (
-                            <button
-                                onClick={handleExportMnemonic}
-                                disabled={isLoading || (isEncrypted && !password)}
-                                className="w-full px-4 py-2 bg-avian-orange text-white rounded-md hover:bg-avian-orange/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                            >
-                                {isLoading ? (
-                                    <RefreshCw className="w-4 h-4 animate-spin mr-2" />
-                                ) : (
-                                    <Key className="w-4 h-4 mr-2" />
-                                )}
-                                Export Mnemonic
-                            </button>
-                        ) : (
-                            <div className="space-y-4">
-                                <div className="space-y-4">
-                                    <div className="flex items-center justify-between">
-                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                            Your Mnemonic Phrase (12 words)
-                                        </label>
-                                        <button
-                                            onClick={() => setShowMnemonic(!showMnemonic)}
-                                            className="flex items-center text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                                        >
-                                            {showMnemonic ? (
-                                                <>
-                                                    <EyeOff className="w-4 h-4 mr-1" />
-                                                    Hide
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Eye className="w-4 h-4 mr-1" />
-                                                    Show
-                                                </>
-                                            )}
-                                        </button>
-                                    </div>
-
-                                    {/* Mnemonic Grid Display */}
-                                    <div className={`grid grid-cols-3 gap-3 ${showMnemonic ? '' : 'filter blur-sm'}`}>
-                                        {mnemonic.split(' ').map((word, index) => (
-                                            <div
-                                                key={index}
-                                                className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-3 text-center"
-                                            >
-                                                <div className="text-xs text-gray-400 dark:text-gray-500 mb-1">
-                                                    {index + 1}
-                                                </div>
-                                                <div className="font-mono text-sm text-gray-900 dark:text-white font-medium">
-                                                    {word}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {showMnemonic && (
-                                    <button
-                                        onClick={() => copyToClipboard(mnemonic)}
-                                        className="w-full px-4 py-2 bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-200 dark:hover:bg-gray-500 flex items-center justify-center"
-                                    >
-                                        <Copy className="w-4 h-4 mr-2" />
-                                        Copy to Clipboard
-                                    </button>
-                                )}
-                            </div>
-                        )}
+                {/* Mnemonic Grid Display */}
+                <div
+                  className={`grid ${mnemonic.split(' ').length <= 12 ? 'grid-cols-3' : 'grid-cols-4'} gap-3 ${showMnemonic ? '' : 'filter blur-sm'}`}
+                >
+                  {mnemonic.split(' ').map((word, index) => (
+                    <div key={index} className="bg-muted/50 border rounded-lg p-3 text-center">
+                      <div className="text-xs text-muted-foreground mb-1">{index + 1}</div>
+                      <div className="font-mono text-sm font-medium">{word}</div>
                     </div>
-                ) : (
-                    // Import Mode
-                    <div className="space-y-4">
-                        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
-                            <div className="flex items-start">
-                                <AlertTriangle className="w-5 h-5 text-blue-600 dark:text-blue-400 mr-2 mt-0.5 flex-shrink-0" />
-                                <div className="text-sm text-blue-800 dark:text-blue-200">
-                                    <p className="font-semibold mb-1">Import Wallet</p>
-                                    <p>Enter your 12-word BIP39 mnemonic phrase to restore your wallet. This will replace any existing wallet.</p>
-                                </div>
-                            </div>
-                        </div>
+                  ))}
+                </div>
 
-                        <div className="space-y-2">
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                Mnemonic Phrase
-                            </label>
-                            <textarea
-                                value={importMnemonic}
-                                onChange={(e) => {
-                                    setImportMnemonic(e.target.value)
-                                    handleValidateMnemonic(e.target.value)
-                                }}
-                                placeholder="Enter your 12-word mnemonic phrase..."
-                                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-avian-orange focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${isValidMnemonic === false ? 'border-red-300 dark:border-red-600' :
-                                    isValidMnemonic === true ? 'border-green-300 dark:border-green-600' :
-                                        'border-gray-300 dark:border-gray-600'
-                                    }`}
-                                rows={3}
-                            />
-                            {isValidMnemonic === true && (
-                                <p className="text-sm text-green-600 dark:text-green-400">✓ Valid mnemonic phrase</p>
+                {/* BIP39 Passphrase Indicator */}
+                {hasBip39Passphrase && (
+                  <Alert className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700">
+                    <Key className="h-4 w-4" />
+                    <AlertTitle>BIP39 Passphrase (25th Word) Required</AlertTitle>
+                    <AlertDescription className="space-y-3">
+                      <p>
+                        This wallet uses an additional BIP39 passphrase (25th word). You will need
+                        both the mnemonic phrase above AND the passphrase to fully restore this
+                        wallet.
+                      </p>
+                      <p className="font-medium text-blue-800 dark:text-blue-200">
+                        ⚠️ Make sure you have backed up your passphrase separately!
+                      </p>
+
+                      {!showPassphraseOption ? (
+                        <div className="pt-2">
+                          <Button
+                            onClick={handleExportPassphrase}
+                            disabled={isLoadingPassphrase}
+                            variant="outline"
+                            size="sm"
+                            className="text-blue-700 border-blue-300 hover:bg-blue-100 dark:text-blue-300 dark:border-blue-600 dark:hover:bg-blue-900/30"
+                          >
+                            {isLoadingPassphrase ? (
+                              <RefreshCw className="w-3 h-3 animate-spin mr-2" />
+                            ) : (
+                              <Eye className="w-3 h-3 mr-2" />
                             )}
-                            {isValidMnemonic === false && (
-                                <p className="text-sm text-red-600 dark:text-red-400">✗ Invalid mnemonic phrase</p>
-                            )}
+                            Show My Passphrase
+                          </Button>
                         </div>
-
-                        <div className="space-y-2">
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                Password (Required for Security)
-                            </label>
-                            <input
-                                type="password"
-                                value={newPassword}
-                                onChange={(e) => setNewPassword(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-avian-orange focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                placeholder="Enter password to encrypt wallet (min 8 characters)"
-                                required
-                            />
+                      ) : (
+                        <div className="pt-2 space-y-3">
+                          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-md p-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                                Your BIP39 Passphrase:
+                              </span>
+                              <Button
+                                onClick={() =>
+                                  copyToClipboard(decryptedPassphrase, 'BIP39 passphrase')
+                                }
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 text-yellow-700 hover:text-yellow-900 dark:text-yellow-300 dark:hover:text-yellow-100"
+                              >
+                                <Copy className="w-3 h-3" />
+                              </Button>
+                            </div>
+                            <div className="font-mono text-sm bg-white dark:bg-gray-800 p-2 rounded border break-all">
+                              {decryptedPassphrase}
+                            </div>
+                          </div>
+                          <p className="text-xs text-yellow-700 dark:text-yellow-300">
+                            🔒 Store this passphrase separately from your mnemonic for maximum
+                            security.
+                          </p>
                         </div>
-
-                        <div className="space-y-2">
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                Confirm Password
-                            </label>
-                            <input
-                                type="password"
-                                value={confirmPassword}
-                                onChange={(e) => setConfirmPassword(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-avian-orange focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                placeholder="Confirm password"
-                                required
-                            />
-                        </div>
-
-                        <div className="flex gap-2">
-                            <button
-                                onClick={handleImportMnemonic}
-                                disabled={isLoading || !importMnemonic.trim() || isValidMnemonic === false}
-                                className="flex-1 px-4 py-2 bg-avian-orange text-white rounded-md hover:bg-avian-orange/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                            >
-                                {isLoading ? (
-                                    <RefreshCw className="w-4 h-4 animate-spin mr-2" />
-                                ) : (
-                                    <Key className="w-4 h-4 mr-2" />
-                                )}
-                                Import Wallet
-                            </button>
-
-                            <button
-                                onClick={handleGenerateNewWallet}
-                                disabled={isLoading}
-                                className="flex-1 px-4 py-2 bg-gray-600 dark:bg-gray-500 text-white rounded-md hover:bg-gray-700 dark:hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                            >
-                                {isLoading ? (
-                                    <RefreshCw className="w-4 h-4 animate-spin mr-2" />
-                                ) : (
-                                    <RefreshCw className="w-4 h-4 mr-2" />
-                                )}
-                                Generate New
-                            </button>
-                        </div>
-                    </div>
+                      )}
+                    </AlertDescription>
+                  </Alert>
                 )}
+              </div>
 
-                {error && (
-                    <div className="mt-4 p-3 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-700 rounded-md">
-                        <p className="text-sm text-red-700 dark:text-red-200">{error}</p>
-                    </div>
-                )}
+              {showMnemonic && (
+                <Button
+                  onClick={() => copyToClipboard(mnemonic, 'Mnemonic phrase')}
+                  variant="secondary"
+                  className="w-full"
+                >
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copy to Clipboard
+                </Button>
+              )}
             </div>
+          )}
         </div>
-    )
+      ) : (
+        // Import Mode
+        <div className="space-y-4">
+          <Alert className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700">
+            <AlertTriangle className="h-5 w-5" />
+            <AlertTitle>Import Wallet</AlertTitle>
+            <AlertDescription>
+              Enter your 12-word BIP39 mnemonic phrase to restore your wallet. This will replace any
+              existing wallet.
+            </AlertDescription>
+          </Alert>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium">Mnemonic Phrase</label>
+            <Textarea
+              value={importMnemonic}
+              onChange={(e) => {
+                setImportMnemonic(e.target.value);
+                handleValidateMnemonic(e.target.value);
+              }}
+              placeholder="Enter your 12-word mnemonic phrase..."
+              className={`${
+                isValidMnemonic === false
+                  ? 'border-red-300 dark:border-red-600'
+                  : isValidMnemonic === true
+                    ? 'border-green-300 dark:border-green-600'
+                    : ''
+              }`}
+              rows={3}
+            />
+            {isValidMnemonic === true && (
+              <p className="text-sm text-green-600 dark:text-green-400">✓ Valid mnemonic phrase</p>
+            )}
+            {isValidMnemonic === false && (
+              <p className="text-sm text-red-600 dark:text-red-400">✗ Invalid mnemonic phrase</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium">Password (Required for Security)</label>
+            <Input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="Enter password to encrypt wallet (min 8 characters)"
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium">Confirm Password</label>
+            <Input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Confirm password"
+              required
+            />
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              onClick={handleImportMnemonic}
+              disabled={isLoading || !importMnemonic.trim() || isValidMnemonic === false}
+              className="flex-1 bg-avian-orange hover:bg-avian-orange/90"
+            >
+              {isLoading ? (
+                <RefreshCw className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <Key className="w-4 h-4 mr-2" />
+              )}
+              Import Wallet
+            </Button>
+
+            <Button
+              onClick={handleGenerateNewWallet}
+              disabled={isLoading}
+              className="flex-1"
+              variant="secondary"
+            >
+              {isLoading ? (
+                <RefreshCw className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <RefreshCw className="w-4 h-4 mr-2" />
+              )}
+              Generate New
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+    </div>
+  );
+
+  // Use drawer on mobile and dialog on desktop
+  return isDesktop ? (
+    <Dialog open={isOpen} onOpenChange={() => handleClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Key className="h-5 w-5 text-avian-orange" />
+            {title}
+          </DialogTitle>
+        </DialogHeader>
+        {content}
+      </DialogContent>
+    </Dialog>
+  ) : (
+    <Drawer open={isOpen} onOpenChange={() => handleClose()}>
+      <DrawerContent className="max-h-[85vh]">
+        <DrawerHeader className="pb-2">
+          <DrawerTitle className="flex items-center gap-2">
+            <Key className="h-5 w-5 text-avian-orange" />
+            {title}
+          </DrawerTitle>
+          <DrawerClose asChild>
+            <Button variant="ghost" size="icon" className="absolute right-4 top-4">
+              <X className="h-4 w-4" />
+            </Button>
+          </DrawerClose>
+        </DrawerHeader>
+        <div className="px-4 pb-4 overflow-y-auto flex-1">{content}</div>
+      </DrawerContent>
+    </Drawer>
+  );
 }

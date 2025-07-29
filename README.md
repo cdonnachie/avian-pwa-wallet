@@ -1,19 +1,27 @@
-# Avian PWA Wallet
+# Avian FlightDeck Wallet
 
 A Progressive Web App (PWA) implementation of the Avian cryptocurrency wallet, built with Next.js and TypeScript. This project represents a modern migration from the original browser extension to a cross-platform web application.
 
 ## Features
 
-- 🔐 **Secure Wallet Management**: Generate, import, and manage Avian wallets
-- 🔒 **Encryption Support**: Optional password-based wallet encryption
-- � **Biometric Authentication**: Face ID, Touch ID, and Windows Hello support
-- �💸 **Send Transactions**: Send AVN to any valid Avian address
+- 🔐 **Secure Wallet Management**: Generate, import, and manage Avian wallets with HD (Hierarchical Deterministic) support
+- 🗂️ **HD Wallet Support**: BIP44-compliant address derivation with receiving and change addresses
+- 🎯 **Manual UTXO Selection**: Advanced transaction control with UTXO selection from multiple HD addresses
+- 🔄 **Change Address Management**: Configurable change address selection for enhanced privacy
+- ⚙️ **HD Configuration**: Intuitive slider controls for managing HD wallet address generation
+- 🔒 **Encryption Support**: Optional password-based wallet encryption with BIP39 passphrase support
+- 🔐 **Biometric Authentication**: Face ID, Touch ID, and Windows Hello support
+- 💸 **Send Transactions**: Send AVN to any valid Avian address with fee customization options
 - 📱 **Receive Payments**: QR code generation for easy payment requests
-- 📊 **Balance Tracking**: Real-time balance updates
-- 💾 **Comprehensive Backup**: Full wallet backup with security settings
-- 🌐 **Progressive Web App**: Installable, offline-capable application
-- 🎨 **Modern UI**: Clean, responsive design with dark mode support
-- 🔧 **Wallet Settings**: Comprehensive wallet management tools
+- 📊 **Balance Tracking**: Real-time balance updates across all derived addresses
+- 💰 **UTXO Management**: Comprehensive UTXO overview and selection tools
+- 💾 **Comprehensive Backup**: Full wallet backup with security settings and selective backup types (Full/Wallets Only)
+- 🌐 **Progressive Web App**: Installable, offline-capable application with responsive mobile-first design
+- 🎨 **Modern UI**: Clean, responsive design with dark mode support and mobile-optimized interface
+- 🔧 **Wallet Settings**: Comprehensive wallet management tools with responsive modal/drawer interfaces
+- 🔔 **Notifications**: Privacy-focused push notifications for transactions and security events
+- 🐛 **Debug Tools**: In-app log viewer with debug status indicators and security audit integration
+- ❓ **User Help**: Built-in About section with feature overview and comprehensive FAQ
 
 ## Technology Stack
 
@@ -27,6 +35,7 @@ A Progressive Web App (PWA) implementation of the Avian cryptocurrency wallet, b
 - **Encryption**: CryptoJS for wallet security
 - **Authentication**: WebAuthn/FIDO2 for biometric authentication
 - **Storage**: IndexedDB for persistent data storage
+- **Security**: Client-side encryption for sensitive data protection
 
 ## Getting Started
 
@@ -50,13 +59,21 @@ cd avian-flightdeck
 npm install
 ```
 
-3. Run the development server:
+3. Set up environment variables (optional):
+
+```bash
+cp .env.example .env.local
+```
+
+Edit `.env.local` if you need to customize any settings.
+
+4. Run the development server:
 
 ```bash
 npm run dev
 ```
 
-4. Open [http://localhost:3000](http://localhost:3000) in your browser
+6. Open [http://localhost:3000](http://localhost:3000) in your browser
 
 ### Building for Production
 
@@ -74,13 +91,17 @@ src/
 │   ├── page.tsx           # Main wallet interface
 │   └── globals.css        # Global styles
 ├── components/            # React components
-│   ├── SendForm.tsx       # Transaction sending form
+│   ├── SendForm.tsx       # Transaction sending form with HD support
 │   ├── ReceiveModal.tsx   # Address/QR code modal
-│   └── WalletSettings.tsx # Wallet management settings
+│   ├── WalletSettings.tsx # Wallet management settings
+│   ├── DerivedAddressesPanel.tsx # HD wallet address explorer
+│   ├── UTXOOverview.tsx   # UTXO management interface
+│   ├── UTXOSelector.tsx   # Manual UTXO selection
+│   └── AddressBook.tsx    # Contact management
 ├── contexts/              # React contexts
-│   └── WalletContext.tsx  # Global wallet state
+│   └── WalletContext.tsx  # Global wallet state with HD support
 ├── services/              # Business logic
-│   ├── WalletService.ts   # Core wallet operations
+│   ├── WalletService.ts   # Core wallet operations with HD derivation
 │   ├── StorageService.ts  # Browser storage abstraction
 │   ├── ElectrumService.ts # Blockchain communication
 │   ├── SecurityService.ts # Authentication and security
@@ -90,19 +111,52 @@ src/
 
 ## Key Features
 
+### HD Wallet Support
+
+- **BIP44 Compliance**: Full implementation of BIP44 derivation paths (m/44'/921'/0'/change/index)
+- **Multi-Coin Support**: Support for both Avian (921) and Ravencoin (175) coin types for legacy compatibility
+- **Address Management**: Automatic generation and tracking of receiving and change addresses
+- **Visual Address Explorer**: Comprehensive interface showing all derived addresses with balances and transaction history
+- **Address Authentication**: Secure access to HD addresses with biometric or password authentication
+- **Configurable Derivation**: Adjustable number of addresses to generate (1-20 per type)
+
+### Advanced Transaction Features
+
+- **Manual UTXO Selection**: Select specific UTXOs from any HD address for transactions
+- **Change Address Selection**: Choose custom change addresses from your HD wallet
+- **Subtract Fee Options**: Option to subtract transaction fees from the sent amount
+- **Multi-Address Transactions**: Send from multiple HD addresses in a single transaction
+- **UTXO Overview**: Detailed view of all unspent outputs across your wallet
+- **Balance Aggregation**: Real-time balance calculation across all derived addresses
+
+### Responsive Design System
+
+- **Mobile-First Architecture**: All components adapt seamlessly between mobile and desktop interfaces
+- **Drawer/Dialog Pattern**: Mobile uses full-screen drawers, desktop uses centered dialogs
+- **Breakpoint Consistency**: 640px breakpoint used across all responsive components
+- **Touch-Optimized**: Mobile interfaces optimized for touch interaction and smaller screens
+
 ### Wallet Management
 
-- Generate new HD wallets with optional encryption
-- Import existing wallets via private key
+- Generate new HD wallets with BIP44 compliance and optional encryption
+- Import existing wallets via private key or mnemonic seed phrase
 - Export private keys (with password protection)
 - Encrypt/decrypt existing wallets
+- HD address derivation with configurable coin types (Avian 921, Ravencoin 175)
+- Change address preference management with persistent storage
+- Multi-address balance tracking and transaction history
 
 ### Transaction Handling
 
-- Send AVN with automatic fee calculation
-- Address validation
-- Balance checking before transactions
-- Transaction confirmation and error handling
+- Send AVN with automatic fee calculation and manual fee options
+- Advanced UTXO selection from any HD address
+- Change address selection for enhanced privacy
+- Subtract fee from amount option
+- Address validation with HD wallet support
+- Balance checking across all derived addresses
+- Multi-address transaction construction
+- Transaction confirmation and comprehensive error handling
+- Support for transactions from multiple HD addresses simultaneously
 
 ### Security
 
@@ -139,12 +193,32 @@ src/
   - Security settings and preferences
   - Transaction history
   - Security audit log
+- Multiple backup types:
+  - **Full Backup**: Complete wallet data, address book, and settings
+  - **Wallets Only**: Just wallet keys and addresses for lighter backups
 - Optional backup encryption with AES
 - Backup validation and integrity checking
-- Multiple backup types (full backup, wallets-only)
 - Selective restore options (wallets, address book, settings, etc.)
 - Portable backups for cross-device migration
 - Biometric status tracking for wallets after restore
+- QR code backup/restore for air-gapped transfers
+
+### Debug and Development Tools
+
+- **Integrated Log Viewer**: Comprehensive logging system with multiple logger support
+- **Debug Status Indicators**: Visual indicators showing which loggers have debug mode enabled
+- **Security Audit Integration**: Read-only access to security audit logs within the log viewer
+- **Error Boundary System**: Comprehensive error handling with detailed error reporting
+- **Real-time Log Monitoring**: Auto-refresh capabilities and live log filtering
+- **Log Export**: Download logs as JSON for external analysis
+
+### User Help and Support
+
+- **In-App About Section**: Comprehensive feature overview with detailed descriptions
+- **Interactive FAQ**: Common questions and answers about wallet functionality
+- **Quick Help Access**: Help button available in main interface for instant assistance
+- **Feature Highlights**: Visual indicators and explanations of key wallet capabilities
+- **Troubleshooting Guide**: Step-by-step solutions for common issues
 
 ## Configuration
 
@@ -185,25 +259,6 @@ PWA configuration is handled in:
 - Use HTTPS in production
 - Implement proper error handling for crypto operations
 
-## Migration from Browser Extension
-
-This PWA replaces the original Avian browser extension with several improvements:
-
-### Advantages
-
-- ✅ Cross-platform compatibility (mobile, desktop, any browser)
-- ✅ No extension store approval process
-- ✅ Modern React/TypeScript codebase
-- ✅ Progressive Web App features
-- ✅ Better mobile experience
-
-### Limitations
-
-- ❌ No automatic browser integration
-- ❌ Manual installation required
-- ❌ Limited background processing
-- ❌ No context menu integration
-
 ## Contributing
 
 1. Fork the repository
@@ -216,7 +271,6 @@ This PWA replaces the original Avian browser extension with several improvements
 
 This wallet is designed for small amounts and testing purposes. For large amounts:
 
-- Use a hardware wallet
 - Verify all transactions carefully
 - Keep backups of your private keys
 - Use strong passwords for encryption
@@ -228,6 +282,18 @@ This wallet is designed for small amounts and testing purposes. For large amount
 - After restoring a backup on a new device, biometrics must be set up again
 - Biometrics provide an additional security layer, but are not a replacement for strong passwords
 - The app maintains information about which wallets had biometrics enabled to guide re-setup
+
+## Documentation
+
+See our [Documentation Index](docs/index.md) for comprehensive guides.
+
+### Key Documentation
+
+- [Getting Started](docs/GETTING_STARTED.md): Quick start guide for developers
+- [Security Features](docs/SECURITY_FEATURES.md): Overview of security features
+- [Privacy](docs/PRIVACY.md): Comprehensive privacy approach
+- [Notifications](docs/NOTIFICATIONS.md): Notification system documentation
+- [Deployment](docs/DEPLOY.md): Guide to deploy on Vercel
 
 ## License
 
@@ -242,12 +308,13 @@ For issues and questions:
 
 ## Roadmap
 
-- [x] Transaction history display
-- [x] Biometric authentication
-- [x] Comprehensive backup/restore system
-- [x] Security audit logging
 - [ ] Multi-language support
-- [ ] Hardware wallet integration
-- [ ] Advanced fee estimation
-- [ ] Backup/restore via QR codes
-- [ ] Multi-signature support
+- [x] Advanced fee estimation with manual options
+- [x] HD wallet support with BIP44 compliance
+- [x] Manual UTXO selection and management
+- [x] Change address selection and management
+- [x] Multi-address transaction support
+- [x] Backup/restore via QR codes
+- [x] In-app log viewer for debugging with debug status indicators
+- [x] Security audit log integration with read-only access
+- [x] Address book integration with HD wallets

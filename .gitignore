@@ -19,6 +19,7 @@
 .DS_Store
 *.pem
 /certs
+.github/instructions
 
 # debug
 npm-debug.log*
@@ -36,7 +37,7 @@ yarn-error.log*
 next-env.d.ts
 
 # SSL certificates (development only)
-/certs/
+/certificates/
 localhost-key.pem
 localhost.pem
 
@@ -45,3 +46,5 @@ public/sw.js
 public/workbox-*.js
 public/sw.js.map
 public/workbox-*.js.map
+CLAUDE.md
+ai-comment-analysis.md
