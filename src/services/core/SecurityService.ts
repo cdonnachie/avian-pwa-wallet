@@ -1098,10 +1098,10 @@ export class SecurityService {
   async isLocked(): Promise<boolean> {
     await this.ensureInitialized();
 
-    // Check if there are any wallets
-    const wallets = await StorageService.getAllWallets();
-    if (wallets.length === 0) {
-      // If no wallets, we should never be locked
+    // Check if there's an active wallet (consistent with initialization logic)
+    const activeWallet = await StorageService.getActiveWallet();
+    if (!activeWallet) {
+      // If no active wallet, we should never be locked
       if (this.securityState.isLocked) {
         this.securityState.isLocked = false;
         this.notifyLockStateChange(false);

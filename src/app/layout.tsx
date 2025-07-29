@@ -5,7 +5,6 @@ import './globals.css';
 import './vendor-prefixes.css';
 import { WalletProvider } from '@/contexts/WalletContext';
 import { SecurityProvider } from '@/contexts/SecurityContext';
-import { TermsProvider } from '@/contexts/TermsContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
 import { Toaster } from '@/components/ui/sonner';
 import dynamic from 'next/dynamic';
@@ -56,16 +55,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <ServiceWorkerRegistrar />
             <ElectrumManagerWrapper />
             <Toaster position="top-right" closeButton />
-            <TermsProvider>
-              <SecurityProvider>
-                <WalletProvider>
-                  <NotificationProvider>
-                    {children}
-                    <ClientWatchedAddressWrapper />
-                  </NotificationProvider>
-                </WalletProvider>
-              </SecurityProvider>
-            </TermsProvider>
+            <SecurityProvider>
+              <WalletProvider>
+                <NotificationProvider>
+                  {children}
+                  <ClientWatchedAddressWrapper />
+                </NotificationProvider>
+              </WalletProvider>
+            </SecurityProvider>
           </ClientErrorBoundary>
         </ThemeProvider>
       </body>

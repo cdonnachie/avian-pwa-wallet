@@ -12,10 +12,12 @@ import {
     Unlock,
     Copy,
     HelpCircle,
+    Server,
 } from 'lucide-react';
 import { useWallet } from '@/contexts/WalletContext';
 import { useSecurity } from '@/contexts/SecurityContext';
 import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import SendForm from '@/components/SendForm';
 import ReceiveContent from '@/components/ReceiveContent';
 import WalletSettingsDashboard from '@/components/WalletSettingsDashboard';
@@ -25,33 +27,68 @@ import ThemeSwitcher from '@/components/ThemeSwitcher';
 import GradientBackground from '@/components/GradientBackground';
 import WelcomeDialog from '@/components/WelcomeDialog';
 import AboutModal from '@/components/AboutModal';
+import { AppLayout } from '@/components/AppLayout';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import Image from 'next/image';
 
 export default function Home() {
+    const router = useRouter();
     const { wallet, balance, address, isLoading, processingProgress, updateBalance } = useWallet();
     const { lockWallet, isLocked } = useSecurity();
-    const [activeTab, setActiveTab] = useState<'send' | 'receive' | 'history' | 'settings'>('send');
+    const [activeTab, setActiveTab] = useState<'send' | 'receive' | 'history'>('send');
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [showWelcomeDialog, setShowWelcomeDialog] = useState(false);
     const [showAboutModal, setShowAboutModal] = useState(false);
     const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
+    const [termsAccepted, setTermsAccepted] = useState<boolean | null>(null);
 
     const fullRefreshRequestedRef = useRef(false);
 
-    // Check if wallet exists on initial load
+    // Check for terms acceptance on initial load
     useEffect(() => {
-        if (!address && !isLoading && typeof window !== 'undefined') {
-            const walletData = localStorage.getItem('wallets') || localStorage.getItem('activeWallet');
-            if (!walletData) {
-                setShowWelcomeDialog(true);
+        if (typeof window !== 'undefined') {
+            const termsAcceptedValue = localStorage.getItem('terms-accepted');
+            if (!termsAcceptedValue) {
+                router.push('/terms');
+                return;
             }
+            setTermsAccepted(true);
         }
-    }, [address, isLoading]);
+    }, [router]);
+
+    // Check if wallet exists on initial load - only after terms are accepted
+    useEffect(() => {
+        const checkWalletExists = async () => {
+            if (termsAccepted && typeof window !== 'undefined') {
+                // Add a small delay to ensure wallet context has time to initialize
+                await new Promise(resolve => setTimeout(resolve, 100));
+
+                // First check localStorage for wallet data
+                const walletData = localStorage.getItem('wallets') || localStorage.getItem('activeWallet');
+
+                // Also check using StorageService for more accurate detection
+                try {
+                    const { StorageService } = await import('@/services/core/StorageService');
+                    const hasWallet = await StorageService.hasWallet();
+
+                    // Only show welcome dialog if no wallet exists and no address is loaded
+                    if (!hasWallet && !walletData && !address) {
+                        setShowWelcomeDialog(true);
+                    }
+                } catch (error) {
+                    // Fallback to localStorage check if StorageService fails
+                    if (!walletData && !address && !isLoading) {
+                        setShowWelcomeDialog(true);
+                    }
+                }
+            }
+        };
+
+        checkWalletExists();
+    }, [termsAccepted, address, isLoading]);
 
     const formatBalance = (balance: number) => {
         const avnBalance = (balance / 100000000).toFixed(8); // Convert satoshis to AVN
@@ -133,61 +170,61 @@ export default function Home() {
         }
     };
 
-    return (
-        <GradientBackground>
-            <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
-                {/* Multi-panel dashboard for desktop, single column for mobile */}
-                <div className="block lg:hidden max-w-xl md:max-w-2xl mx-auto space-y-6">
-                    {/* Mobile layout */}
-                    {/* Header */}
-                    <Card className="mb-8 relative border-0 shadow-none bg-transparent pt-2">
-                        <div className="absolute top-2 right-0 flex items-center space-x-2 z-10">
-                            {/* Lock Button */}
-                            {address && (
-                                <Button
-                                    onClick={() => lockWallet()}
-                                    variant="ghost"
-                                    size="icon"
-                                    className="w-9 h-9"
-                                    aria-label="Lock wallet"
-                                    title="Lock wallet"
-                                >
-                                    {isLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
-                                </Button>
-                            )}
+    // Don't render the main app until terms acceptance has been checked
+    if (termsAccepted === null) {
+        return (
+            <div className="min-h-screen bg-background flex items-center justify-center">
+                <div className="flex items-center space-x-2">
+                    <Loader className="h-6 w-6 animate-spin text-avian-600" />
+                    <span className="text-gray-600 dark:text-gray-400">Loading...</span>
+                </div>
+            </div>
+        );
+    }
 
-                            {/* Help Button */}
+    return (
+        <AppLayout
+            headerProps={{
+                title: 'Avian FlightDeck',
+                subtitle: 'Your cryptocurrency wallet',
+                icon: Wallet,
+                actions: (
+                    <div className="flex items-center space-x-2">
+                        {/* Lock Button */}
+                        {address && (
                             <Button
+                                onClick={() => lockWallet()}
                                 variant="ghost"
                                 size="icon"
-                                className="w-9 h-9 text-white"
-                                onClick={() => setShowAboutModal(true)}
-                                title="About wallet & FAQ"
+                                className="w-9 h-9"
+                                aria-label="Lock wallet"
+                                title="Lock wallet"
                             >
-                                <HelpCircle className="h-4 w-4" />
+                                {isLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
                             </Button>
+                        )}
 
-                            {/* Theme Switcher */}
-                            <ThemeSwitcher />
-                        </div>
+                        {/* Help Button */}
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="w-9 h-9"
+                            onClick={() => setShowAboutModal(true)}
+                            title="About wallet & FAQ"
+                        >
+                            <HelpCircle className="h-4 w-4" />
+                        </Button>
 
-                        <CardContent className="flex flex-col items-center">
-                            <div className="flex justify-center items-center">
-                                <Image
-                                    src="/Avian_logo.svg"
-                                    alt="Avian Logo"
-                                    width={48}
-                                    height={48}
-                                    className="text-avian-600 invert"
-                                    priority
-                                />
-                            </div>
-                            <CardTitle className="text-2xl font-bold mb-2 text-white">Avian FlightDeck</CardTitle>
-                            <CardDescription className="text-center text-muted dark:text-muted-foreground">
-                                Manage your AVN cryptocurrency securely and easily.
-                            </CardDescription>
-                        </CardContent>
-                    </Card>
+                        {/* Theme Switcher */}
+                        <ThemeSwitcher />
+                    </div>
+                )
+            }}
+        >
+            <GradientBackground>
+                {/* Multi-panel dashboard for desktop, single column for mobile */}
+                <div className="block lg:hidden max-w-xl md:max-w-2xl space-y-6">
+                    {/* Mobile layout */}
 
                     {/* Wallet Card */}
                     <Card className="mb-6 wallet-card relative bg-avian-600">
@@ -271,7 +308,7 @@ export default function Home() {
                     <Tabs
                         value={activeTab}
                         onValueChange={(value) =>
-                            setActiveTab(value as 'send' | 'receive' | 'history' | 'settings')
+                            setActiveTab(value as 'send' | 'receive' | 'history')
                         }
                         className="mb-6 border-b border-gray-200 dark:border-gray-700"
                     >
@@ -292,17 +329,10 @@ export default function Home() {
                             </TabsTrigger>
                             <TabsTrigger
                                 value="history"
-                                className="flex-1 flex flex-col items-center justify-center px-6 py-4 data-[state=active]:border-b-1 data-[state=active]:border-avian-400 data-[state=active]:text-avian-400 data-[state=active]:after:h-0.5 data-[state=active]:after:bg-avian-400 data-[state=active]:after:absolute data-[state=active]:after:bottom-0 data-[state=active]:after:left-0 data-[state=active]:after:w-full bg-background rounded-none text-gray-500 dark:text-gray-400 h-auto relative"
+                                className="flex-1 flex flex-col items-center justify-center px-6 py-4 data-[state=active]:border-b-1 data-[state=active]:border-avian-400 data-[state=active]:text-avian-400 data-[state=active]:after:h-0.5 data-[state=active]:after:bg-avian-400 data-[state=active]:after:absolute data-[state=active]:after:bottom-0 data-[state=active]:after:left-0 data-[state=active]:after:w-full bg-background rounded-br-lg rounded-tr-lg text-gray-500 dark:text-gray-400 h-auto relative"
                             >
                                 <History className="h-4 w-4 mr-2" />
                                 <span>History</span>
-                            </TabsTrigger>
-                            <TabsTrigger
-                                value="settings"
-                                className="flex-1 flex flex-col items-center justify-center px-6 py-4 data-[state=active]:border-b-1 data-[state=active]:border-avian-400 data-[state=active]:text-avian-400 data-[state=active]:after:h-0.5 data-[state=active]:after:bg-avian-400 data-[state=active]:after:absolute data-[state=active]:after:bottom-0 data-[state=active]:after:left-0 data-[state=active]:after:w-full bg-background rounded-br-none rounded-tr-lg text-gray-500 dark:text-gray-400 h-auto relative"
-                            >
-                                <Settings className="h-4 w-4 mr-2" />
-                                <span>Settings</span>
                             </TabsTrigger>
                         </TabsList>
 
@@ -317,9 +347,6 @@ export default function Home() {
                                 <TabsContent value="history" className="m-0">
                                     <TransactionHistory />
                                 </TabsContent>
-                                <TabsContent value="settings" className="m-0">
-                                    <WalletSettingsDashboard />
-                                </TabsContent>
                             </CardContent>
                         </Card>
                     </Tabs>
@@ -333,57 +360,7 @@ export default function Home() {
                 </div>
 
                 {/* Desktop Multi-Panel Dashboard */}
-                <div className="hidden lg:block lg:max-w-7xl mx-auto">
-                    {/* Top Header - Full Width */}
-                    <Card className="relative border-0 shadow-none bg-transparent mb-8 pt-2">
-                        <div className="absolute top-2 right-0 flex items-center space-x-2 z-10">
-                            {/* Lock Button */}
-                            {address && (
-                                <Button
-                                    onClick={() => lockWallet()}
-                                    variant="ghost"
-                                    size="icon"
-                                    className="w-9 h-9 text-white"
-                                    aria-label="Lock wallet"
-                                    title="Lock wallet"
-                                >
-                                    {isLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
-                                </Button>
-                            )}
-
-                            {/* Help Button */}
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="w-9 h-9 text-white"
-                                onClick={() => setShowAboutModal(true)}
-                                title="About wallet & FAQ"
-                            >
-                                <HelpCircle className="h-4 w-4" />
-                            </Button>
-
-                            {/* Theme Switcher */}
-                            <ThemeSwitcher />
-                        </div>
-
-                        <CardContent className="flex flex-col items-center">
-                            <div className="flex mb-2 justify-center items-center">
-                                <Image
-                                    src="/Avian_logo.svg"
-                                    alt="Avian Logo"
-                                    width={48}
-                                    height={48}
-                                    className="text-avian-600 invert"
-                                    priority
-                                />
-                            </div>
-                            <CardTitle className="text-2xl text-white font-bold mb-2">Avian FlightDeck</CardTitle>
-                            <CardDescription className="text-center text-muted dark:text-muted-foreground ">
-                                Manage your AVN cryptocurrency securely and easily.
-                            </CardDescription>
-                        </CardContent>
-                    </Card>
-
+                <div className="hidden lg:block lg:max-w-7xl">
                     {/* Wallet Balance Card - Full Width */}
                     <Card className="wallet-card relative bg-avian-600 mb-8">
                         <CardHeader className="py-3 px-4 relative z-10">
@@ -500,23 +477,14 @@ export default function Home() {
                             </Card>
                         </div>
 
-                        {/* Settings Panel - Full width bottom */}
+                        {/* Connection Status - Full width at bottom */}
                         <div className="col-span-12">
                             <Card className="h-full rounded-t-md">
                                 <CardHeader className="py-3 px-4 bg-gradient-to-r from-avian-400 via-avian-700 to-avian-400 text-white flex items-center rounded-t-md">
-                                    <Settings className="h-5 w-5 mr-2 flex-shrink-0" />
-                                    <CardTitle className="text-lg">Wallet Settings</CardTitle>
+                                    <Server className="h-5 w-5 mr-2 flex-shrink-0" />
+                                    <CardTitle className="text-lg">Connection Status</CardTitle>
                                 </CardHeader>
                                 <CardContent className="p-4">
-                                    <WalletSettingsDashboard />
-                                </CardContent>
-                            </Card>
-                        </div>
-
-                        {/* Connection Status - Full width at bottom */}
-                        <div className="col-span-12">
-                            <Card>
-                                <CardContent className="p-0">
                                     <ConnectionStatus />
                                 </CardContent>
                             </Card>
@@ -529,7 +497,7 @@ export default function Home() {
 
                 {/* About Modal */}
                 <AboutModal isOpen={showAboutModal} onClose={() => setShowAboutModal(false)} />
-            </div>
-        </GradientBackground>
+            </GradientBackground>
+        </AppLayout>
     );
 }

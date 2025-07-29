@@ -275,21 +275,58 @@ export function WalletManager({ onWalletSelect, onClose }: WalletManagerProps) {
     loadWallets();
   }, [loadWallets]);
 
+  // Listen for wallet switches from other components
+  useEffect(() => {
+    const handleWalletSwitched = () => {
+      loadWallets();
+    };
+
+    const handleWalletCreated = () => {
+      loadWallets();
+    };
+
+    const handleWalletDeleted = () => {
+      loadWallets();
+    };
+
+    const handleWalletImported = () => {
+      loadWallets();
+    };
+
+    window.addEventListener('wallet-switched', handleWalletSwitched);
+    window.addEventListener('wallet-created', handleWalletCreated);
+    window.addEventListener('wallet-deleted', handleWalletDeleted);
+    window.addEventListener('wallet-imported', handleWalletImported);
+
+    return () => {
+      window.removeEventListener('wallet-switched', handleWalletSwitched);
+      window.removeEventListener('wallet-created', handleWalletCreated);
+      window.removeEventListener('wallet-deleted', handleWalletDeleted);
+      window.removeEventListener('wallet-imported', handleWalletImported);
+    };
+  }, [loadWallets]);
+
   const handleSwitchWallet = async (walletId: number) => {
     try {
       setIsLoading(true);
       const success = await StorageService.switchToWallet(walletId);
       if (success) {
-        await loadWallets();
-
         // Find the wallet before we reload the context
         const newActiveWallet = wallets.find((w) => w.id === walletId);
 
         // Reload the wallet context to update the UI
         await reloadActiveWallet();
 
-        // Dispatch event to notify that wallet was switched
-        window.dispatchEvent(new CustomEvent('wallet-switched'));
+        // Wait a moment for context to update
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        // Reload local wallet list
+        await loadWallets();
+
+        // Dispatch event to notify other components that wallet was switched
+        window.dispatchEvent(new CustomEvent('wallet-switched', {
+          detail: { walletId }
+        }));
 
         // Load notification settings for the new active wallet
         try {
@@ -674,7 +711,7 @@ export function WalletManager({ onWalletSelect, onClose }: WalletManagerProps) {
                   setIsCreating(false);
                 }
               }}
-              onCancel={() => {}}
+              onCancel={() => { }}
               isSubmitting={isCreating}
             />
           </TabsContent>
@@ -722,7 +759,7 @@ export function WalletManager({ onWalletSelect, onClose }: WalletManagerProps) {
                       setIsCreating(false);
                     }
                   }}
-                  onCancel={() => {}}
+                  onCancel={() => { }}
                   isSubmitting={isCreating}
                 />
               </TabsContent>
@@ -766,7 +803,7 @@ export function WalletManager({ onWalletSelect, onClose }: WalletManagerProps) {
                       setIsCreating(false);
                     }
                   }}
-                  onCancel={() => {}}
+                  onCancel={() => { }}
                   isSubmitting={isCreating}
                 />
               </TabsContent>

@@ -13,6 +13,8 @@ import { StorageService } from '@/services/core/StorageService';
 import SecurityLockScreen from '@/components/SecurityLockScreen';
 import AuthenticationDialog from '@/components/AuthenticationDialog';
 import { useWallet } from './WalletContext';
+import Image from 'next/image';
+import GradientBackground from '@/components/GradientBackground';
 
 interface SecurityContextType {
   isLocked: boolean;
@@ -62,15 +64,25 @@ export function SecurityProvider({ children }: SecurityProviderProps) {
     // Initialize security service and check if wallet should be locked
     const initSecurity = async () => {
       try {
-        // Check if there are any wallets first
-        const wallets = await StorageService.getAllWallets();
+        // Check terms acceptance FIRST - security requires terms acceptance
+        const termsAccepted = localStorage.getItem('terms-accepted');
 
-        // Only lock if there are wallets
-        if (wallets.length > 0) {
+        if (!termsAccepted) {
+          // Terms not accepted, stay unlocked regardless of wallet state
+          setIsLocked(false);
+          setIsInitializing(false);
+          return;
+        }
+
+        // Terms accepted, proceed with normal security checks
+        const activeWallet = await StorageService.getActiveWallet();
+
+        // Check if there's an active wallet
+        if (activeWallet) {
           const isCurrentlyLocked = await securityService.isLocked();
           setIsLocked(isCurrentlyLocked);
         } else {
-          // If no wallets, ensure we're unlocked
+          // If no active wallet, ensure we're unlocked
           setIsLocked(false);
         }
       } catch (error) {
@@ -83,6 +95,36 @@ export function SecurityProvider({ children }: SecurityProviderProps) {
     };
 
     initSecurity();
+
+    // Listen for changes to terms acceptance (e.g., when user returns from /terms)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'terms-accepted' && e.newValue) {
+        // Terms were just accepted, re-initialize security
+        setIsInitializing(true);
+        initSecurity();
+      }
+    };
+
+    // Listen for custom terms acceptance event
+    const handleTermsAccepted = (e: CustomEvent) => {
+      if (e.detail?.accepted) {
+        setIsInitializing(true);
+        initSecurity();
+      }
+    };
+
+    // Also listen for focus events in case user navigates back from terms page
+    const handleFocus = () => {
+      const termsAccepted = localStorage.getItem('terms-accepted');
+      if (termsAccepted && !isInitializing) {
+        // Terms are now accepted but we might be in unlocked state, re-check
+        initSecurity();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('terms-accepted', handleTermsAccepted as EventListener);
 
     // Listen for lock state changes
     const unsubscribe = securityService.onLockStateChange(
@@ -119,6 +161,9 @@ export function SecurityProvider({ children }: SecurityProviderProps) {
     // Clean up event listeners on unmount
     return () => {
       unsubscribe();
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('terms-accepted', handleTermsAccepted as EventListener);
       userActivityEvents.forEach((eventType) => {
         window.removeEventListener(eventType, handleUserActivity);
       });
@@ -255,12 +300,16 @@ export function SecurityProvider({ children }: SecurityProviderProps) {
   // Show nothing while initializing to prevent flicker
   if (isInitializing) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center bg-background">
-        <div className="animate-pulse text-center">
-          <div className="h-12 w-12 rounded-full border-4 border-avian-600 border-t-transparent animate-spin mx-auto mb-4"></div>
-          <p className="text-sm text-muted-foreground">Loading wallet...</p>
+      <GradientBackground>
+        <div className="fixed inset-0 flex h-full w-full items-center justify-center z-50">
+          <div className="flex flex-col items-center justify-center text-center space-y-4">
+            <div className="flex items-center justify-center">
+              <Image src="/avian_spinner.gif" alt="Loading..." width={96} height={96} />
+            </div>
+            <p className="text-sm text-muted-foreground animate-pulse">Loading wallet...</p>
+          </div>
         </div>
-      </div>
+      </GradientBackground>
     );
   }
 

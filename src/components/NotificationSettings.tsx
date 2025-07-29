@@ -20,6 +20,7 @@ import { NotificationClientService } from '@/services/notifications/client/Notif
 import { toast } from 'sonner';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { Button } from './ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { BrowserNotificationHelp } from './BrowserNotificationHelp';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
@@ -223,20 +224,22 @@ export default function NotificationSettings({ isOpen, onClose }: NotificationSe
 
   if (!isSupported) {
     const notSupportedContent = (
-      <div className="p-4 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-800">
-        <div className="flex items-start">
-          <AlertCircle className="w-5 h-5 text-yellow-500 mt-0.5 mr-3 flex-shrink-0" />
-          <div>
-            <h3 className="text-sm font-medium text-yellow-800 dark:text-yellow-300">
-              Notifications Not Supported
-            </h3>
-            <p className="mt-1 text-sm text-yellow-700 dark:text-yellow-400">
-              Your browser does not support push notifications or they are disabled in your
-              settings.
-            </p>
+      <Card className="border-destructive/50 bg-destructive/5">
+        <CardContent className="pt-6">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-destructive mt-0.5 flex-shrink-0" />
+            <div>
+              <h3 className="text-sm font-medium text-destructive mb-1">
+                Notifications Not Supported
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Your browser does not support push notifications or they are disabled in your
+                settings.
+              </p>
+            </div>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     );
 
     // If used as modal/drawer, wrap in appropriate container
@@ -279,12 +282,14 @@ export default function NotificationSettings({ isOpen, onClose }: NotificationSe
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-sm text-muted-foreground">
             Manage wallet notifications and alerts
           </p>
         </div>
         <div className="flex items-center space-x-2">
-          <button
+          <Button
+            variant={isEnabled ? "default" : "outline"}
+            size="sm"
             onClick={async () => {
               if (permissionState === 'denied') {
                 // Show browser settings instructions for denied permissions
@@ -302,11 +307,7 @@ export default function NotificationSettings({ isOpen, onClose }: NotificationSe
                 handleToggleNotifications();
               }
             }}
-            className={`flex items-center justify-center p-2 rounded-lg transition-colors ${
-              isEnabled
-                ? 'bg-avian-100 dark:bg-avian-900/20 text-avian-700 dark:text-avian-300'
-                : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-            } ${permissionState === 'denied' ? 'opacity-50 hover:opacity-100 cursor-help' : ''}`}
+            className={permissionState === 'denied' ? 'opacity-50 hover:opacity-100 cursor-help' : ''}
             aria-label={isEnabled ? 'Disable notifications' : 'Enable notifications'}
             title={
               permissionState === 'denied'
@@ -314,283 +315,296 @@ export default function NotificationSettings({ isOpen, onClose }: NotificationSe
                 : 'Global notification toggle'
             }
           >
-            {isEnabled ? <Bell className="w-5 h-5" /> : <BellOff className="w-5 h-5" />}
-          </button>
+            {isEnabled ? <Bell className="w-4 h-4 mr-2" /> : <BellOff className="w-4 h-4 mr-2" />}
+            {isEnabled ? 'Enabled' : 'Enable'}
+          </Button>
         </div>
       </div>
 
       {/* Current wallet notification toggle */}
       {activeWalletAddress && isEnabled && (
-        <div className="flex flex-col p-3 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <Info className="w-4 h-4 text-gray-400 mr-2" />
-              <div>
-                <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                  Current Wallet Notifications
-                </h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-xs">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Info className="w-4 h-4 text-muted-foreground" />
+              <div className="flex-1">
+                <CardTitle className="text-sm">Current Wallet Notifications</CardTitle>
+                <p className="text-xs text-muted-foreground truncate max-w-xs">
                   {activeWalletAddress}
                 </p>
               </div>
             </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Enable notifications for this wallet</span>
+              <label
+                className={`relative inline-flex items-center ${permissionState === 'denied'
+                    ? 'cursor-help'
+                    : !isEnabled
+                      ? 'cursor-not-allowed'
+                      : 'cursor-pointer'
+                  }`}
+                onClick={async (e) => {
+                  // If permissions are denied, show the help dialog instead of toggling
+                  if (permissionState === 'denied') {
+                    e.preventDefault();
 
-            <label
-              className={`relative inline-flex items-center ${
-                permissionState === 'denied'
-                  ? 'cursor-help'
-                  : !isEnabled
-                    ? 'cursor-not-allowed'
-                    : 'cursor-pointer'
-              }`}
-              onClick={async (e) => {
-                // If permissions are denied, show the help dialog instead of toggling
-                if (permissionState === 'denied') {
-                  e.preventDefault();
+                    // Show browser settings instructions for denied permissions
+                    toast.info('Notifications are blocked', {
+                      description:
+                        'Please check your browser settings to allow notifications from this website. In most browsers, you can click the lock or info icon in the address bar to manage site permissions.',
+                      duration: 8000,
+                    });
 
-                  // Show browser settings instructions for denied permissions
-                  toast.info('Notifications are blocked', {
-                    description:
-                      'Please check your browser settings to allow notifications from this website. In most browsers, you can click the lock or info icon in the address bar to manage site permissions.',
-                    duration: 8000,
-                  });
-
-                  // Log the action
-                  const { notificationLogger } = await import('@/lib/Logger');
-                  notificationLogger.info(
-                    'Showed notification permission instructions to user via wallet toggle',
-                  );
-                }
-              }}
-            >
-              <input
-                type="checkbox"
-                value=""
-                className="sr-only peer"
-                checked={walletNotifications[activeWalletAddress] === true}
-                onChange={(e) => {
-                  // Only allow toggles if permission is granted and notifications are enabled
-                  if (permissionState !== 'denied' && isEnabled) {
-                    toggleWalletNotifications(activeWalletAddress, e.target.checked);
+                    // Log the action
+                    const { notificationLogger } = await import('@/lib/Logger');
+                    notificationLogger.info(
+                      'Showed notification permission instructions to user via wallet toggle',
+                    );
                   }
                 }}
-                disabled={permissionState === 'denied' || !isEnabled}
-              />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-avian-300 dark:peer-focus:ring-avian-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-avian-600"></div>
-            </label>
-          </div>
-          {walletNotifications[activeWalletAddress] === true && (
-            <div className="mt-2 flex items-center gap-2 text-xs text-green-500 dark:text-green-400">
-              <AlertCircle className="w-3 h-3" />
-              <span>Notifications are enabled for this wallet</span>
+              >
+                <input
+                  type="checkbox"
+                  value=""
+                  className="sr-only peer"
+                  checked={walletNotifications[activeWalletAddress] === true}
+                  onChange={(e) => {
+                    // Only allow toggles if permission is granted and notifications are enabled
+                    if (permissionState !== 'denied' && isEnabled) {
+                      toggleWalletNotifications(activeWalletAddress, e.target.checked);
+                    }
+                  }}
+                  disabled={permissionState === 'denied' || !isEnabled}
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+              </label>
             </div>
-          )}
-        </div>
+            {walletNotifications[activeWalletAddress] === true && (
+              <div className="mt-3 flex items-center gap-2 text-xs text-green-600 dark:text-green-400">
+                <AlertCircle className="w-3 h-3" />
+                <span>Notifications are enabled for this wallet</span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {permissionState === 'denied' && (
-        <div className="p-3 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-800">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-yellow-700 dark:text-yellow-400">
-              Notifications are blocked by your browser. Please update your browser settings to
-              enable notifications.
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={async () => {
-                try {
-                  // Log the action
-                  const { notificationLogger } = await import('@/lib/Logger');
-                  notificationLogger.info('User clicked How to enable button');
-
-                  // Show browser-specific instructions
-                  toast.info('How to enable notifications', {
-                    description:
-                      'To enable notifications, check your browser settings. In Chrome, click the lock icon in the address bar, select "Site settings" and change Notifications to "Allow". In Firefox, click the lock icon and set Notifications to "Allow". In Safari, go to Preferences > Websites > Notifications.',
-                    duration: 10000,
-                  });
-
-                  // Attempt to request permission directly - this might work in some browsers
-                  // even if previously denied (depends on browser)
-                  if ('Notification' in window) {
+        <Card className="border-destructive/50 bg-destructive/5">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-destructive mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <h4 className="font-medium text-destructive mb-1">
+                  Notifications Blocked
+                </h4>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Notifications are blocked by your browser. Please update your browser settings to enable notifications.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
                     try {
-                      const permission = await Notification.requestPermission();
+                      // Log the action
+                      const { notificationLogger } = await import('@/lib/Logger');
+                      notificationLogger.info('User clicked How to enable button');
 
-                      // If permission was just granted, update the context
-                      if (permission === 'granted') {
-                        notificationLogger.info('Permission granted via direct request');
+                      // Show browser-specific instructions
+                      toast.info('How to enable notifications', {
+                        description:
+                          'To enable notifications, check your browser settings. In Chrome, click the lock icon in the address bar, select "Site settings" and change Notifications to "Allow". In Firefox, click the lock icon and set Notifications to "Allow". In Safari, go to Preferences > Websites > Notifications.',
+                        duration: 10000,
+                      });
 
-                        // Enable notifications which will trigger the context to re-check permission
-                        await enableNotifications();
+                      // Attempt to request permission directly - this might work in some browsers
+                      // even if previously denied (depends on browser)
+                      if ('Notification' in window) {
+                        try {
+                          const permission = await Notification.requestPermission();
 
-                        // Show success message
-                        toast.success('Notification permission granted!', {
-                          description: 'You can now enable notifications for your wallets',
-                        });
-                      } else {
-                        notificationLogger.info(`Permission request resulted in: ${permission}`);
+                          // If permission was just granted, update the context
+                          if (permission === 'granted') {
+                            notificationLogger.info('Permission granted via direct request');
+
+                            // Enable notifications which will trigger the context to re-check permission
+                            await enableNotifications();
+
+                            // Show success message
+                            toast.success('Notification permission granted!', {
+                              description: 'You can now enable notifications for your wallets',
+                            });
+                          } else {
+                            notificationLogger.info(`Permission request resulted in: ${permission}`);
+                          }
+                        } catch (permissionError) {
+                          notificationLogger.error(
+                            'Error requesting notification permission:',
+                            permissionError,
+                          );
+                        }
                       }
-                    } catch (permissionError) {
-                      notificationLogger.error(
-                        'Error requesting notification permission:',
-                        permissionError,
-                      );
+                    } catch (error) {
+                      const { notificationLogger } = await import('@/lib/Logger');
+                      notificationLogger.error('Error in how to enable handler:', error);
                     }
-                  }
-                } catch (error) {
-                  const { notificationLogger } = await import('@/lib/Logger');
-                  notificationLogger.error('Error in how to enable handler:', error);
-                }
-              }}
-            >
-              How to enable
-            </Button>
-          </div>
-        </div>
+                  }}
+                >
+                  How to enable
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       <div className="space-y-4">
         {/* General notification settings */}
-        <div
-          className={`rounded-lg border border-gray-200 dark:border-gray-700 p-4 ${!isEnabled ? 'opacity-50' : ''}`}
-        >
-          <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
-            Notification Types
-          </h3>
+        <Card className={`${!isEnabled ? 'opacity-50' : ''}`}>
+          <CardHeader>
+            <CardTitle className="text-base">Notification Types</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <label htmlFor="balance" className="text-sm font-medium">
+                  Balance updates
+                </label>
+                <input
+                  type="checkbox"
+                  id="balance"
+                  checked={preferences.balance}
+                  onChange={(e) => handlePreferenceChange('balance', e.target.checked)}
+                  disabled={!isEnabled}
+                  className="h-4 w-4 text-primary focus:ring-primary/20 border-input rounded"
+                />
+              </div>
 
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <label htmlFor="balance" className="text-sm text-gray-700 dark:text-gray-300">
-                Balance updates
-              </label>
-              <input
-                type="checkbox"
-                id="balance"
-                checked={preferences.balance}
-                onChange={(e) => handlePreferenceChange('balance', e.target.checked)}
-                disabled={!isEnabled}
-                className="h-4 w-4 text-avian-600 focus:ring-avian-500 border-gray-300 dark:border-gray-600 rounded"
-              />
-            </div>
+              <div className="flex items-center justify-between">
+                <label htmlFor="transactions" className="text-sm font-medium">
+                  New transactions
+                </label>
+                <input
+                  type="checkbox"
+                  id="transactions"
+                  checked={preferences.transactions}
+                  onChange={(e) => handlePreferenceChange('transactions', e.target.checked)}
+                  disabled={!isEnabled}
+                  className="h-4 w-4 text-primary focus:ring-primary/20 border-input rounded"
+                />
+              </div>
 
-            <div className="flex items-center justify-between">
-              <label htmlFor="transactions" className="text-sm text-gray-700 dark:text-gray-300">
-                New transactions
-              </label>
-              <input
-                type="checkbox"
-                id="transactions"
-                checked={preferences.transactions}
-                onChange={(e) => handlePreferenceChange('transactions', e.target.checked)}
-                disabled={!isEnabled}
-                className="h-4 w-4 text-avian-600 focus:ring-avian-500 border-gray-300 dark:border-gray-600 rounded"
-              />
+              <div className="flex items-center justify-between">
+                <label htmlFor="security" className="text-sm font-medium">
+                  Security alerts
+                </label>
+                <input
+                  type="checkbox"
+                  id="security"
+                  checked={preferences.security}
+                  onChange={(e) => handlePreferenceChange('security', e.target.checked)}
+                  disabled={!isEnabled}
+                  className="h-4 w-4 text-primary focus:ring-primary/20 border-input rounded"
+                />
+              </div>
             </div>
-
-            <div className="flex items-center justify-between">
-              <label htmlFor="security" className="text-sm text-gray-700 dark:text-gray-300">
-                Security alerts
-              </label>
-              <input
-                type="checkbox"
-                id="security"
-                checked={preferences.security}
-                onChange={(e) => handlePreferenceChange('security', e.target.checked)}
-                disabled={!isEnabled}
-                className="h-4 w-4 text-avian-600 focus:ring-avian-500 border-gray-300 dark:border-gray-600 rounded"
-              />
-            </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* Price alert settings */}
-        <div
-          className={`rounded-lg border border-gray-200 dark:border-gray-700 p-4 ${!isEnabled ? 'opacity-50' : ''}`}
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">Price Alerts</h3>
-            {/* Make price alerts toggleable like other notification types */}
-            <input
-              type="checkbox"
-              id="priceAlerts"
-              checked={preferences.priceAlerts !== false}
-              onChange={(e) => handlePreferenceChange('priceAlerts', e.target.checked)}
-              disabled={!isEnabled}
-              className="h-4 w-4 text-avian-600 focus:ring-avian-500 border-gray-300 dark:border-gray-600 rounded"
-            />
-          </div>
+        <Card className={`${!isEnabled ? 'opacity-50' : ''}`}>
+          <CardHeader>
+            <CardTitle className="text-base">Price Alerts</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Enable price alerts</span>
+              <input
+                type="checkbox"
+                id="priceAlerts"
+                checked={preferences.priceAlerts !== false}
+                onChange={(e) => handlePreferenceChange('priceAlerts', e.target.checked)}
+                disabled={!isEnabled}
+                className="h-4 w-4 text-primary focus:ring-primary/20 border-input rounded"
+              />
+            </div>
 
-          {/* Current price */}
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Current AVN price</p>
-              <p className="text-base font-medium text-gray-900 dark:text-gray-100">
-                {currentAvnPrice ? `$${currentAvnPrice.toFixed(7)}` : 'Unknown'}
-              </p>
-              {priceLastUpdated && (
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Updated: {priceLastUpdated.toLocaleTimeString()} (locally stored)
+            {/* Current price */}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Current AVN price</p>
+                <p className="text-base font-medium">
+                  {currentAvnPrice ? `$${currentAvnPrice.toFixed(7)}` : 'Unknown'}
+                </p>
+                {priceLastUpdated && (
+                  <p className="text-xs text-muted-foreground">
+                    Updated: {priceLastUpdated.toLocaleTimeString()} (locally stored)
+                  </p>
+                )}
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleRefreshPrice}
+                disabled={isRefreshingPrice}
+              >
+                <RefreshCw className={`w-4 h-4 ${isRefreshingPrice ? 'animate-spin' : ''}`} />
+              </Button>
+            </div>
+
+            {/* Threshold setting */}
+            <div className="space-y-3">
+              <label
+                htmlFor="priceThreshold"
+                className="block text-sm font-medium"
+              >
+                Price change threshold (%)
+              </label>
+              <input
+                type="range"
+                id="priceThreshold"
+                min="1"
+                max="20"
+                step="1"
+                value={preferences.priceAlertThreshold}
+                onChange={(e) =>
+                  handlePreferenceChange('priceAlertThreshold', parseInt(e.target.value))
+                }
+                disabled={!isEnabled || preferences.priceAlerts === false}
+                className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>1%</span>
+                <span className="font-medium text-primary">
+                  {preferences.priceAlertThreshold}%
+                </span>
+                <span>20%</span>
+              </div>
+
+              {/* Add informational text when price alerts are disabled */}
+              {preferences.priceAlerts === false && (
+                <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md">
+                  <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    Price alerts are currently disabled
+                  </p>
+                </div>
+              )}
+              {preferences.priceAlerts !== false && (
+                <p className="text-xs text-muted-foreground">
+                  You&apos;ll be notified when AVN price changes by {preferences.priceAlertThreshold}%
+                  or more.
                 </p>
               )}
-            </div>
-            <button
-              onClick={handleRefreshPrice}
-              disabled={isRefreshingPrice}
-              className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              <RefreshCw className={`w-4 h-4 ${isRefreshingPrice ? 'animate-spin' : ''}`} />
-            </button>
-          </div>
-
-          {/* Threshold setting */}
-          <div className="space-y-2">
-            <label
-              htmlFor="priceThreshold"
-              className="block text-sm text-gray-700 dark:text-gray-300"
-            >
-              Price change threshold (%)
-            </label>
-            <input
-              type="range"
-              id="priceThreshold"
-              min="1"
-              max="20"
-              step="1"
-              value={preferences.priceAlertThreshold}
-              onChange={(e) =>
-                handlePreferenceChange('priceAlertThreshold', parseInt(e.target.value))
-              }
-              disabled={!isEnabled || preferences.priceAlerts === false}
-              className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
-            />
-            <div className="flex justify-between">
-              <span className="text-xs text-gray-500 dark:text-gray-400">1%</span>
-              <span className="text-xs font-medium text-avian-600 dark:text-avian-400">
-                {preferences.priceAlertThreshold}%
-              </span>
-              <span className="text-xs text-gray-500 dark:text-gray-400">20%</span>
-            </div>
-
-            {/* Add informational text when price alerts are disabled */}
-            {preferences.priceAlerts === false && (
-              <p className="mt-2 text-xs text-amber-600 dark:text-amber-400 flex items-center">
-                <AlertCircle className="w-3 h-3 mr-1" />
-                Price alerts are currently disabled
+              <p className="text-xs text-muted-foreground">
+                Note: Price checks occur approximately every 15 minutes due to CoinGecko API rate
+                limits. All notification settings are stored locally for privacy.
               </p>
-            )}
-            {preferences.priceAlerts !== false && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                You&apos;ll be notified when AVN price changes by {preferences.priceAlertThreshold}%
-                or more.
-              </p>
-            )}
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Note: Price checks occur approximately every 15 minutes due to CoinGecko API rate
-              limits. All notification settings are stored locally for privacy.
-            </p>
-          </div>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Browser Notification Help */}
@@ -602,18 +616,20 @@ export default function NotificationSettings({ isOpen, onClose }: NotificationSe
 
       {/* Wallet-specific notification settings */}
       {isEnabled && (
-        <div className="mt-6">
-          <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
+        <div className="space-y-3">
+          <h3 className="text-base font-medium">
             Wallet-specific Notifications
           </h3>
-          <div className="rounded-lg border border-gray-200 dark:border-gray-700 divide-y divide-gray-200 dark:divide-gray-700">
-            <WalletNotificationsList
-              walletNotifications={walletNotifications}
-              toggleWalletNotifications={toggleWalletNotifications}
-              activeWalletAddress={activeWalletAddress || ''}
-            />
-          </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+          <Card>
+            <CardContent className="p-0 divide-y divide-border">
+              <WalletNotificationsList
+                walletNotifications={walletNotifications}
+                toggleWalletNotifications={toggleWalletNotifications}
+                activeWalletAddress={activeWalletAddress || ''}
+              />
+            </CardContent>
+          </Card>
+          <p className="text-xs text-muted-foreground">
             Enable or disable local notifications for specific wallets. Settings are stored only on
             your device for privacy.
           </p>
@@ -728,7 +744,7 @@ function WalletNotificationsList({
 
   if (loading) {
     return (
-      <div className="p-3 text-center text-sm text-gray-500 dark:text-gray-400">
+      <div className="p-4 text-center text-sm text-muted-foreground">
         Loading wallets...
       </div>
     );
@@ -736,7 +752,7 @@ function WalletNotificationsList({
 
   if (wallets.length === 0) {
     return (
-      <div className="p-3 text-center text-sm text-gray-500 dark:text-gray-400">
+      <div className="p-4 text-center text-sm text-muted-foreground">
         No wallets found
       </div>
     );
@@ -747,13 +763,13 @@ function WalletNotificationsList({
       {wallets.map((wallet, index) => (
         <div
           key={wallet.address}
-          className={`flex items-center justify-between p-3 ${wallet.address === activeWalletAddress ? 'bg-avian-50 dark:bg-avian-900/10' : ''}`}
+          className={`flex items-center justify-between p-4 ${wallet.address === activeWalletAddress ? 'bg-accent/50' : ''}`}
         >
           <div className="truncate max-w-xs">
-            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+            <p className="text-sm font-medium">
               {wallet.name || `Wallet ${index + 1}`}
             </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{wallet.address}</p>
+            <p className="text-xs text-muted-foreground truncate">{wallet.address}</p>
           </div>
 
           <label className="relative inline-flex items-center cursor-pointer">
@@ -763,7 +779,7 @@ function WalletNotificationsList({
               checked={walletNotifications[wallet.address] === true}
               onChange={(e) => toggleWalletNotifications(wallet.address, e.target.checked)}
             />
-            <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-avian-300 dark:peer-focus:ring-avian-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-avian-600"></div>
+            <div className="w-9 h-5 bg-input peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-ring peer-focus:ring-offset-2 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-background after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
           </label>
         </div>
       ))}

@@ -543,8 +543,8 @@ export default function SendForm() {
   // Force reload change addresses (used when user changes the count preference)
   const reloadChangeAddresses = useCallback(async () => {
     if (isHdWallet) {
-      setAvailableChangeAddresses([]); // Clear current addresses
-      await loadChangeAddresses(true); // Force reload with new count
+      setAvailableChangeAddresses([]);
+      await loadChangeAddresses(true);
     }
   }, [isHdWallet, loadChangeAddresses]);
 
@@ -557,7 +557,7 @@ export default function SendForm() {
           id: '',
           name: wallet.name,
           address: wallet.address,
-          description: 'My wallet address for consolidating funds',
+          description: '',
           dateAdded: new Date(),
           useCount: 0,
           isOwnWallet: true,
@@ -566,6 +566,9 @@ export default function SendForm() {
         const success = await StorageService.saveAddress(addressData);
         if (success) {
           setToAddress(wallet.address);
+          toast.success('Wallet address added to address book', {
+            description: 'You can edit the description in the address book if needed',
+          });
         }
       }
     } catch (error) {
@@ -586,7 +589,6 @@ export default function SendForm() {
         if (wallet) {
           setToAddress(wallet.address);
           setIsConsolidatingToSelf(true);
-          // Clear any custom change address during dust consolidation
           setCustomChangeAddress('');
         }
       } catch (error) {
@@ -595,13 +597,10 @@ export default function SendForm() {
         });
       }
     } else if (options.strategy === CoinSelectionStrategy.MANUAL) {
-      // When manual selection is chosen, show the UTXO selector
       setShowUTXOSelector(true);
     } else if (isConsolidatingToSelf) {
-      // If we're switching away from consolidation, clear the address field if it was auto-filled
       setToAddress('');
       setIsConsolidatingToSelf(false);
-      // Change address selection is now available again (no need to restore - user can select)
     }
   };
 
@@ -901,9 +900,9 @@ export default function SendForm() {
           <Button
             variant={
               utxoOptions.strategy !== CoinSelectionStrategy.BEST_FIT ||
-              utxoOptions.feeRate !== 10000 ||
-              utxoOptions.maxInputs !== 20 ||
-              utxoOptions.minConfirmations !== 6
+                utxoOptions.feeRate !== 10000 ||
+                utxoOptions.maxInputs !== 20 ||
+                utxoOptions.minConfirmations !== 6
                 ? 'secondary'
                 : 'outline'
             }
@@ -917,8 +916,8 @@ export default function SendForm() {
               utxoOptions.feeRate !== 10000 ||
               utxoOptions.maxInputs !== 20 ||
               utxoOptions.minConfirmations !== 6) && (
-              <span className="absolute -top-1 -right-1 h-2 w-2 bg-amber-500 rounded-full"></span>
-            )}
+                <span className="absolute -top-1 -right-1 h-2 w-2 bg-amber-500 rounded-full"></span>
+              )}
           </Button>
         </div>
       </CardHeader>
@@ -929,55 +928,55 @@ export default function SendForm() {
           utxoOptions.feeRate !== 10000 ||
           utxoOptions.maxInputs !== 20 ||
           utxoOptions.minConfirmations !== 6) && (
-          <div className="mb-4 p-3 bg-secondary/30 border rounded-lg">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div className="flex items-center">
-                <Settings className="h-4 w-4 mr-2 text-blue-600 dark:text-blue-400" />
-                <span className="text-sm font-medium">Custom Settings Active</span>
+            <div className="mb-4 p-3 bg-secondary/30 border rounded-lg">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center">
+                  <Settings className="h-4 w-4 mr-2 text-blue-600 dark:text-blue-400" />
+                  <span className="text-sm font-medium">Custom Settings Active</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={resetUTXOSettings}
+                    className="h-7 text-xs px-2"
+                  >
+                    Reset
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowUTXOSettings(true)}
+                    className="h-7 text-xs px-2 text-primary"
+                  >
+                    Modify
+                  </Button>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={resetUTXOSettings}
-                  className="h-7 text-xs px-2"
-                >
-                  Reset
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowUTXOSettings(true)}
-                  className="h-7 text-xs px-2 text-primary"
-                >
-                  Modify
-                </Button>
+              <div className="mt-2 text-xs space-y-1">
+                {utxoOptions.strategy !== CoinSelectionStrategy.BEST_FIT && (
+                  <Badge variant="outline" className="mr-2 mb-1">
+                    Strategy: {utxoOptions.strategy?.replace(/_/g, ' ')}
+                  </Badge>
+                )}
+                {utxoOptions.feeRate !== 10000 && (
+                  <Badge variant="outline" className="mr-2 mb-1">
+                    Fee Rate: {utxoOptions.feeRate} sat/vB
+                  </Badge>
+                )}
+                {utxoOptions.maxInputs !== 20 && (
+                  <Badge variant="outline" className="mr-2 mb-1">
+                    Max Inputs: {utxoOptions.maxInputs}
+                  </Badge>
+                )}
+                {utxoOptions.minConfirmations !== 6 && (
+                  <Badge variant="outline" className="mr-2 mb-1">
+                    Min Confirmations: {utxoOptions.minConfirmations}
+                  </Badge>
+                )}
               </div>
             </div>
-            <div className="mt-2 text-xs space-y-1">
-              {utxoOptions.strategy !== CoinSelectionStrategy.BEST_FIT && (
-                <Badge variant="outline" className="mr-2 mb-1">
-                  Strategy: {utxoOptions.strategy?.replace(/_/g, ' ')}
-                </Badge>
-              )}
-              {utxoOptions.feeRate !== 10000 && (
-                <Badge variant="outline" className="mr-2 mb-1">
-                  Fee Rate: {utxoOptions.feeRate} sat/vB
-                </Badge>
-              )}
-              {utxoOptions.maxInputs !== 20 && (
-                <Badge variant="outline" className="mr-2 mb-1">
-                  Max Inputs: {utxoOptions.maxInputs}
-                </Badge>
-              )}
-              {utxoOptions.minConfirmations !== 6 && (
-                <Badge variant="outline" className="mr-2 mb-1">
-                  Min Confirmations: {utxoOptions.minConfirmations}
-                </Badge>
-              )}
-            </div>
-          </div>
-        )}
+          )}
 
         {error && (
           <Alert variant="destructive" className="mb-4">
@@ -1095,7 +1094,7 @@ export default function SendForm() {
               {maxAmount <= 0 && (
                 <Badge variant="destructive" className="ml-2">
                   {utxoOptions.strategy === CoinSelectionStrategy.MANUAL &&
-                  manuallySelectedUTXOs.length === 0
+                    manuallySelectedUTXOs.length === 0
                     ? 'No UTXOs selected'
                     : 'Insufficient funds for fee'}
                 </Badge>

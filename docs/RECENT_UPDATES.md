@@ -17,7 +17,33 @@ This document tracks recent enhancements to the Avian FlightDeck Wallet applicat
 - **Dynamic Word Count Detection**: UI adapts to show both 12 and 24-word recovery phrases
 - **Enhanced Import Validation**: Support for importing both 12 and 24-word recovery phrases
 - **Secure Passphrase Viewing**: Separate authentication required to view stored BIP39 passphrases
+- **BIP39 Passphrase Export**: Restored ability to export BIP39 passphrase (25th word) from wallet settings
 - **Compatibility Alerts**: Clear warnings when using features that may not be compatible with other wallets
+- **Improved Export UI**: Better user experience with "Clear" buttons instead of confusing "Export New" labels
+
+### HD Wallet Configuration
+
+- **Slider Control**: Added intuitive slider for configuring number of HD wallet addresses to display
+- **Wallet-Specific Settings**: Address count preferences are now stored per wallet
+- **Visual Indicators**: Current wallet address display in HD configuration section
+- **Automatic Reset**: Settings properly reset when switching between wallets
+- **Consistent UI**: HD config slider matches the design and functionality of Derived Addresses panel
+
+## Wallet Management Improvements
+
+### Multi-Wallet Support Enhancements
+
+- **Wallet Switching Bug Fixes**: Fixed issues where HD configuration and sensitive data persisted when switching wallets
+- **Proper State Reset**: Exported mnemonic, private key, and BIP39 passphrase data automatically clears when changing wallets
+- **Current Wallet Indicators**: Visual indicators show which wallet is currently active in settings
+- **Wallet-Specific Storage**: Address count preferences and other settings properly isolated per wallet
+
+### User Experience Improvements
+
+- **Intuitive Button Labels**: Changed confusing "Export New" buttons to clear "Clear" labels throughout the interface
+- **Better Visual Feedback**: Improved notifications and user feedback for wallet operations
+- **Consistent Design**: Applied design system tokens and shadcn components across all wallet settings
+- **Address Book Integration**: Improved wallet address saving with optional descriptions instead of hardcoded text
 
 ## User Interface Improvements
 
@@ -34,6 +60,8 @@ This document tracks recent enhancements to the Avian FlightDeck Wallet applicat
 - **BackupQRModal**: Added backup type selection (Full/Wallets Only) with responsive design
 - **DerivedAddressesPanel**: Mobile-optimized tabs and search functionality
 - **WalletSettingsDashboard**: All settings panels now use responsive modal/drawer pattern
+- **NotificationSettings**: Converted to use shadcn Card components with consistent design system styling
+- **HD Wallet Configuration**: New slider-based interface for address count configuration
 - **LogViewer**: Enhanced with debug status indicators and responsive interface
 
 ## Developer Tools and Debugging

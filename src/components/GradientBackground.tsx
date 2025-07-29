@@ -20,7 +20,7 @@ export default function GradientBackground({
             <div
                 className="absolute inset-0 z-0 block dark:hidden"
                 style={{
-                    background: 'radial-gradient(125% 100% at 50% 100%, #ffffff 40%, #2a737f 100%)',
+                    background: 'radial-gradient(145% 100% at 50% 100%, #ffffff 85%, #e6f7f8 100%)',
                     backgroundSize: '100% 100%',
                 }}
             />
@@ -28,7 +28,7 @@ export default function GradientBackground({
             <div
                 className="absolute inset-0 z-0 dark:block hidden"
                 style={{
-                    background: 'radial-gradient(125% 125% at 50% 100%, #000000 40%, #2a737f 100%)',
+                    background: 'radial-gradient(145% 100% at 50% 100%, #000000 50%, #2a737f 100%)',
                     backgroundSize: '100% 100%',
                 }}
             />

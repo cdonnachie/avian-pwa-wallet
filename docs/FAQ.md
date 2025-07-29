@@ -86,10 +86,13 @@ Yes! Avian FlightDeck Wallet supports multiple wallets. You can:
 You can backup your wallet in several ways:
 
 - **Mnemonic phrase**: 12 or 24 words that can restore your entire wallet
+- **BIP39 passphrase**: Export the optional 25th word if your wallet uses one
 - **Private key**: Direct export of your private key (encrypted)
 - **QR codes**: Visual backup format for easy scanning
 
 Always store backups securely and never share them with anyone.
+
+**Important**: If your wallet uses a BIP39 passphrase (25th word), you need BOTH the mnemonic phrase AND the passphrase to restore your wallet. You can export the passphrase separately in the wallet settings under "Export Recovery Phrase".
 
 ### What if I forget my password?
 

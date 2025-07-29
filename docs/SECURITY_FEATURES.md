@@ -67,9 +67,10 @@
 
 ### 6. **BIP39 Enhanced Security**
 
-- **Files**: `src/services/wallet/WalletService.ts`, `src/components/WalletCreationForm.tsx`
+- **Files**: `src/services/wallet/WalletService.ts`, `src/components/WalletCreationForm.tsx`, `src/app/settings/wallet/page.tsx`
 - **Features**:
   - Optional BIP39 passphrase (25th word) support for additional security layer
+  - Secure export of BIP39 passphrase from wallet settings with separate authentication
   - Separate encryption and authentication for passphrase viewing
   - Enhanced entropy options (128-bit/256-bit) for 12/24-word recovery phrases
   - Secure passphrase storage with dedicated decryption authentication

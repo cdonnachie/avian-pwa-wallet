@@ -45,6 +45,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Slider } from '@/components/ui/slider';
 import {
     Select,
     SelectContent,
@@ -771,16 +772,23 @@ export default function DerivedAddressesPanel() {
                         <LoadingIndicator isLoading={isLoading} />
                         <div className="mb-6">
                             <Label htmlFor="addressCount"># of Addresses to Show</Label>
-                            <div className="flex items-center">
-                                <Input
-                                    type="number"
-                                    id="addressCount"
-                                    value={addressCount}
-                                    onChange={(e) => handleAddressCountChange(parseInt(e.target.value) || 5)}
-                                    min="1"
-                                    max="20"
-                                    className="mt-1"
-                                />
+                            <div className="flex items-center space-x-4">
+                                <div className="flex-1">
+                                    <Slider
+                                        id="addressCount"
+                                        min={1}
+                                        max={20}
+                                        step={1}
+                                        value={[addressCount]}
+                                        onValueChange={(value) => handleAddressCountChange(value[0])}
+                                        className="mt-2"
+                                    />
+                                    <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                                        <span>1</span>
+                                        <span className="font-medium text-primary">{addressCount}</span>
+                                        <span>20</span>
+                                    </div>
+                                </div>
                                 <div className="flex items-center ml-3">
                                     <Badge className="mr-2 bg-amber-200 text-amber-900 dark:bg-amber-800 dark:text-amber-100">
                                         ×{addressCount}

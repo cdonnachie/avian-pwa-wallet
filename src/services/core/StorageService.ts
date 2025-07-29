@@ -379,14 +379,27 @@ export class StorageService {
 
   // Helper method to check if a database exists
   private static async checkDatabaseExists(dbName: string): Promise<boolean> {
+    if ('databases' in indexedDB && typeof (indexedDB as any).databases === 'function') {
+      const dbs = await (indexedDB as any).databases();
+      return dbs.some((db: { name?: string }) => db.name === dbName);
+    }
+
+    // Fallback for older browsers:
     return new Promise((resolve) => {
+      let existed = true;
       const request = indexedDB.open(dbName);
-      request.onsuccess = () => {
-        const db = request.result;
-        const exists = db.version > 0;
-        db.close();
-        resolve(exists);
+
+      request.onupgradeneeded = () => {
+        // This means the DB didn't exist — cancel creation
+        existed = false;
+        request.transaction?.abort();
       };
+
+      request.onsuccess = () => {
+        request.result.close();
+        resolve(existed);
+      };
+
       request.onerror = () => resolve(false);
     });
   }
@@ -770,7 +783,7 @@ export class StorageService {
       // Log the switch
       storageLogger.info(
         `Switching wallet from ${currentActiveWalletAddress || 'none'} ` +
-          `(ID: ${currentActiveWalletId}) to ${targetWallet.address} (ID: ${walletId})`,
+        `(ID: ${currentActiveWalletId}) to ${targetWallet.address} (ID: ${walletId})`,
       );
 
       // Update the previous wallet address for notification checks

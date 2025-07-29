@@ -16,13 +16,13 @@ export function BackupQRModal({ open, onClose, mode = 'both' }: BackupQRModalPro
     if (open) {
       // Close the modal and navigate to the QR backup page
       onClose();
-
+      
       // Navigate to the QR backup page with mode as query parameter
       const params = new URLSearchParams();
       if (mode === 'restore-only') {
         params.set('tab', 'restore');
       }
-
+      
       const url = params.toString() ? `/backup/qr?${params.toString()}` : '/backup/qr';
       router.push(url);
     }

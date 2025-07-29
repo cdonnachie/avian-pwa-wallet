@@ -8,7 +8,8 @@ A Progressive Web App (PWA) implementation of the Avian cryptocurrency wallet, b
 - 🗂️ **HD Wallet Support**: BIP44-compliant address derivation with receiving and change addresses
 - 🎯 **Manual UTXO Selection**: Advanced transaction control with UTXO selection from multiple HD addresses
 - 🔄 **Change Address Management**: Configurable change address selection for enhanced privacy
-- 🔒 **Encryption Support**: Optional password-based wallet encryption
+- ⚙️ **HD Configuration**: Intuitive slider controls for managing HD wallet address generation
+- 🔒 **Encryption Support**: Optional password-based wallet encryption with BIP39 passphrase support
 - 🔐 **Biometric Authentication**: Face ID, Touch ID, and Windows Hello support
 - 💸 **Send Transactions**: Send AVN to any valid Avian address with fee customization options
 - 📱 **Receive Payments**: QR code generation for easy payment requests
