@@ -17,7 +17,7 @@ export class BackupService {
   private static readonly CURRENT_VERSION = '1.0.0';
   private static readonly BACKUP_MAGIC_HEADER = 'AVIAN_WALLET_BACKUP';
   private static readonly QR_CHUNK_HEADER = 'AVIAN_QR_CHUNK';
-  private static readonly MAX_QR_CHUNK_SIZE = 2000; // Conservative size for QR code data capacity
+  private static readonly MAX_QR_CHUNK_SIZE = 800; // Much smaller for reliable mobile scanning
   private static readonly backupLogger = Logger.getLogger('backup_service');
 
   /**
@@ -799,8 +799,8 @@ export class BackupService {
       maxChunkSize: this.MAX_QR_CHUNK_SIZE,
     });
 
-    // Calculate optimal chunk size (leave room for metadata)
-    const actualChunkSize = this.MAX_QR_CHUNK_SIZE - 100;
+    // Calculate optimal chunk size (leave more room for metadata to ensure mobile readability)
+    const actualChunkSize = this.MAX_QR_CHUNK_SIZE - 200;
 
     // Count total chunks needed
     const totalChunks = Math.ceil(backupString.length / actualChunkSize);

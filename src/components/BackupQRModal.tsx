@@ -37,14 +37,14 @@ import { useMediaQuery } from '@/hooks/use-media-query';
 interface BackupQRModalProps {
   open: boolean;
   onClose: () => void;
+  mode?: 'both' | 'restore-only'; // New prop to control which tabs are shown
 }
 
 // Create a logger instance for QR backup/restore
 const qrBackupLogger = Logger.getLogger('qr_backup');
 
-export function BackupQRModal({ open, onClose }: BackupQRModalProps) {
-  const [activeTab, setActiveTab] = useState<'backup' | 'restore'>('backup');
-  const [backupType, setBackupType] = useState<'full' | 'wallets'>('full');
+export function BackupQRModal({ open, onClose, mode = 'both' }: BackupQRModalProps) {
+  const [activeTab, setActiveTab] = useState<'backup' | 'restore'>(mode === 'restore-only' ? 'restore' : 'backup');
   const [backupPassword, setBackupPassword] = useState('');
   const [restorePassword, setRestorePassword] = useState('');
   const [backupChunks, setBackupChunks] = useState<string[]>([]);
@@ -67,13 +67,8 @@ export function BackupQRModal({ open, onClose }: BackupQRModalProps) {
     try {
       setIsGenerating(true);
 
-      // Create a backup using the BackupService based on selected type
-      let backup;
-      if (backupType === 'full') {
-        backup = await BackupService.createFullBackup();
-      } else {
-        backup = await BackupService.createWalletsOnlyBackup();
-      }
+      // For QR codes, always use wallets-only backup to keep size manageable
+      const backup = await BackupService.createWalletsOnlyBackup();
 
       // Export backup with optional encryption
       const backupBlob = await BackupService.exportBackup(
@@ -93,12 +88,9 @@ export function BackupQRModal({ open, onClose }: BackupQRModalProps) {
       setBackupChunks(chunks);
       setCurrentChunkIndex(0);
 
-      toast.success(
-        `${backupType === 'full' ? 'Full' : 'Wallets-only'} backup QR codes generated`,
-        {
-          description: `Created ${chunks.length} QR code${chunks.length > 1 ? 's' : ''} for your backup`,
-        },
-      );
+      toast.success('Wallets backup QR codes generated', {
+        description: `Created ${chunks.length} QR code${chunks.length > 1 ? 's' : ''} for your wallet backup`,
+      });
     } catch (error) {
       toast.error('Failed to generate backup QR code', {
         description: error instanceof Error ? error.message : 'Unknown error',
@@ -117,40 +109,79 @@ export function BackupQRModal({ open, onClose }: BackupQRModalProps) {
       setScannedChunks([]);
       setRestoreError(null);
 
-      // Access device camera
+      qrBackupLogger.info('Starting QR scanner');
+
+      // Access device camera with better constraints
       const constraints = {
-        video: { facingMode: 'environment' },
+        video: {
+          facingMode: 'environment',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
       };
 
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.play();
 
-        // Start scanning loop
-        scanQRCode();
+        // Wait for video to be ready before starting scan loop
+        videoRef.current.onloadedmetadata = () => {
+          qrBackupLogger.info('Video metadata loaded, starting scan loop');
+          if (videoRef.current) {
+            videoRef.current.play().then(() => {
+              qrBackupLogger.info('Video playing, scanner ready');
+              // Start scanning after a short delay to ensure video is fully ready
+              setTimeout(() => {
+                if (isCameraActive && videoRef.current) {
+                  qrBackupLogger.info(`Video ready state: ${videoRef.current.readyState}, dimensions: ${videoRef.current.videoWidth}x${videoRef.current.videoHeight}`);
+                  scanQRCode();
+                }
+              }, 500);
+            }).catch((error) => {
+              qrBackupLogger.error('Error playing video:', error);
+              toast.error('Failed to start video playback');
+              setIsCameraActive(false);
+              setIsScanning(false);
+            });
+          }
+        };
+
+        videoRef.current.onerror = (error) => {
+          qrBackupLogger.error('Video error:', error);
+          toast.error('Video playback error');
+        };
       }
     } catch (error) {
+      qrBackupLogger.error('Failed to access camera:', error);
       setIsCameraActive(false);
       setIsScanning(false);
       toast.error('Failed to access camera', {
-        description: 'Please ensure you have granted camera permissions',
+        description: 'Please ensure you have granted camera permissions and try again',
       });
     }
   };
 
   // Stop the camera scanning
   const stopScanner = () => {
+    qrBackupLogger.info('Stopping QR scanner');
+
     if (requestRef.current) {
       cancelAnimationFrame(requestRef.current);
       requestRef.current = null;
     }
 
     if (videoRef.current?.srcObject) {
-      const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
-      tracks.forEach((track) => track.stop());
-      videoRef.current.srcObject = null;
+      try {
+        const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
+        tracks.forEach((track) => {
+          track.stop();
+          qrBackupLogger.debug(`Stopped ${track.kind} track`);
+        });
+        videoRef.current.srcObject = null;
+      } catch (error) {
+        qrBackupLogger.error('Error stopping camera tracks:', error);
+      }
     }
 
     setIsCameraActive(false);
@@ -159,63 +190,89 @@ export function BackupQRModal({ open, onClose }: BackupQRModalProps) {
 
   // Process each video frame to scan for QR codes
   const scanQRCode = () => {
-    if (!videoRef.current || !canvasRef.current || !isCameraActive) return;
+    if (!videoRef.current || !canvasRef.current || !isCameraActive) {
+      qrBackupLogger.debug('Scanning stopped: missing refs or inactive camera');
+      return;
+    }
 
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const context = canvas.getContext('2d');
 
-    if (!context || video.videoWidth === 0) {
+    if (!context) {
+      qrBackupLogger.error('Failed to get canvas context');
+      requestRef.current = requestAnimationFrame(scanQRCode);
+      return;
+    }
+
+    // Check if video is ready
+    if (video.readyState !== video.HAVE_ENOUGH_DATA || video.videoWidth === 0 || video.videoHeight === 0) {
       // Video not ready yet, try again in the next frame
       requestRef.current = requestAnimationFrame(scanQRCode);
       return;
     }
 
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    try {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
 
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
 
-    const qrCode = jsQR(imageData.data, imageData.width, imageData.height, {
-      inversionAttempts: 'dontInvert',
-    });
+      const qrCode = jsQR(imageData.data, imageData.width, imageData.height, {
+        inversionAttempts: 'attemptBoth',
+      });
 
-    // If a QR code is found
-    if (qrCode) {
-      // Check if this chunk contains our backup header
-      if (qrCode.data.includes('AVIAN_WALLET_BACKUP') || qrCode.data.includes('AVIAN_QR_CHUNK')) {
-        // Check if we already have this chunk
-        if (!scannedChunks.includes(qrCode.data)) {
-          const updatedChunks = [...scannedChunks, qrCode.data];
-          setScannedChunks(updatedChunks);
+      // If a QR code is found
+      if (qrCode && qrCode.data) {
+        qrBackupLogger.debug('QR Code detected:', qrCode.data.substring(0, 100) + '...');
 
-          // Attempt to determine total chunks and progress
-          try {
-            const chunkInfo = BackupService.getQRChunkInfo(qrCode.data);
-            if (chunkInfo) {
-              const progress = (updatedChunks.length / chunkInfo.totalChunks) * 100;
-              setScanProgress(progress);
+        // Check if this chunk contains our backup header
+        if (qrCode.data.includes('AVIAN_QR_CHUNK') || qrCode.data.includes('AVIAN_WALLET_BACKUP')) {
+          // Check if we already have this chunk
+          if (!scannedChunks.includes(qrCode.data)) {
+            const updatedChunks = [...scannedChunks, qrCode.data];
+            setScannedChunks(updatedChunks);
+            qrBackupLogger.debug(`Added chunk ${updatedChunks.length}`);
 
-              // Check if we've completed scanning
-              if (updatedChunks.length >= chunkInfo.totalChunks) {
-                // We have all chunks, stop scanning
-                handleCompleteRestore(updatedChunks);
-                return;
-              } else {
+            // Attempt to determine total chunks and progress
+            try {
+              const chunkInfo = BackupService.getQRChunkInfo(qrCode.data);
+              if (chunkInfo) {
+                const progress = (updatedChunks.length / chunkInfo.totalChunks) * 100;
+                setScanProgress(progress);
+
+                qrBackupLogger.debug(`Progress: ${updatedChunks.length}/${chunkInfo.totalChunks} (${progress.toFixed(1)}%)`);
+
                 // Show progress
                 toast.info(`Scanned chunk ${updatedChunks.length} of ${chunkInfo.totalChunks}`, {
                   description: 'Please scan the next QR code',
                 });
+
+                // Check if we've completed scanning
+                if (updatedChunks.length >= chunkInfo.totalChunks) {
+                  // We have all chunks, stop scanning
+                  qrBackupLogger.info('All chunks collected, starting restore');
+                  handleCompleteRestore(updatedChunks);
+                  return;
+                }
+              } else {
+                qrBackupLogger.warn('Could not parse chunk info from QR data');
               }
+            } catch (error) {
+              // If we can't parse chunk info, just continue scanning
+              qrBackupLogger.error('Error parsing QR chunk info:', error);
             }
-          } catch (error) {
-            // If we can't parse chunk info, just continue scanning
-            qrBackupLogger.error('Error parsing QR chunk info:', error);
+          } else {
+            qrBackupLogger.debug('Chunk already scanned, skipping');
           }
+        } else {
+          qrBackupLogger.debug('QR code detected but not an Avian backup chunk');
         }
       }
+    } catch (error) {
+      qrBackupLogger.error('Error during QR scanning:', error);
     }
 
     // Continue scanning in the next frame
@@ -306,142 +363,120 @@ export function BackupQRModal({ open, onClose }: BackupQRModalProps) {
 
   const mainContent = (
     <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'backup' | 'restore')}>
-      <TabsList className="grid w-full grid-cols-2">
-        <TabsTrigger value="backup">Backup</TabsTrigger>
-        <TabsTrigger value="restore">Restore</TabsTrigger>
-      </TabsList>
+      {mode === 'both' ? (
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="backup">Backup</TabsTrigger>
+          <TabsTrigger value="restore">Restore</TabsTrigger>
+        </TabsList>
+      ) : (
+        <TabsList className="grid w-full grid-cols-1">
+          <TabsTrigger value="restore">Restore from QR Code</TabsTrigger>
+        </TabsList>
+      )}
 
-      {/* Backup Tab */}
-      <TabsContent value="backup" className="space-y-4">
-        {backupChunks.length > 0 ? (
-          <div className="space-y-4">
-            <div className="flex flex-col items-center">
-              <div className="bg-white p-4 rounded-lg">
-                <QRCodeSVG
-                  value={backupChunks[currentChunkIndex]}
-                  size={isMobile ? 200 : 256}
-                  level="M"
-                  includeMargin
-                />
+      {/* Backup Tab - only show if mode allows it */}
+      {mode === 'both' && (
+        <TabsContent value="backup" className="space-y-4">
+          {backupChunks.length > 0 ? (
+            <div className="space-y-4">
+              <div className="flex flex-col items-center">
+                <div className="bg-white p-4 rounded-lg">
+                  <QRCodeSVG
+                    value={backupChunks[currentChunkIndex]}
+                    size={isMobile ? 240 : 280}
+                    level="L"
+                    includeMargin
+                    bgColor="#FFFFFF"
+                    fgColor="#000000"
+                  />
+                </div>
+
+                {backupChunks.length > 1 && (
+                  <div className="mt-4 text-center space-y-2">
+                    <p className="text-sm text-muted-foreground">
+                      QR Code {currentChunkIndex + 1} of {backupChunks.length}
+                    </p>
+                    <div className={`flex ${isMobile ? 'flex-col gap-2' : 'justify-center gap-2'}`}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setCurrentChunkIndex((idx) => Math.max(0, idx - 1))}
+                        disabled={currentChunkIndex === 0}
+                        className={isMobile ? 'w-full' : ''}
+                      >
+                        <ArrowLeft className="h-4 w-4 mr-1" /> Previous
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          setCurrentChunkIndex((idx) => Math.min(backupChunks.length - 1, idx + 1))
+                        }
+                        disabled={currentChunkIndex === backupChunks.length - 1}
+                        className={isMobile ? 'w-full' : ''}
+                      >
+                        Next <ArrowRight className="h-4 w-4 ml-1" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {backupChunks.length > 1 && (
-                <div className="mt-4 text-center space-y-2">
-                  <p className="text-sm text-muted-foreground">
-                    QR Code {currentChunkIndex + 1} of {backupChunks.length}
-                  </p>
-                  <div className={`flex ${isMobile ? 'flex-col gap-2' : 'justify-center gap-2'}`}>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setCurrentChunkIndex((idx) => Math.max(0, idx - 1))}
-                      disabled={currentChunkIndex === 0}
-                      className={isMobile ? 'w-full' : ''}
-                    >
-                      <ArrowLeft className="h-4 w-4 mr-1" /> Previous
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() =>
-                        setCurrentChunkIndex((idx) => Math.min(backupChunks.length - 1, idx + 1))
-                      }
-                      disabled={currentChunkIndex === backupChunks.length - 1}
-                      className={isMobile ? 'w-full' : ''}
-                    >
-                      Next <ArrowRight className="h-4 w-4 ml-1" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
+              <Alert>
+                <AlertDescription>
+                  Scan this QR code with your other device to transfer your wallet.
+                  {backupChunks.length > 1 && ' Navigate through all QR codes for complete backup.'}
+                  QR codes are optimized for mobile scanning with high contrast and low error correction.
+                </AlertDescription>
+              </Alert>
 
-            <Alert>
-              <AlertDescription>
-                Scan this QR code with your other device to transfer your wallet.
-                {backupChunks.length > 1 && ' Navigate through all QR codes for complete backup.'}
-              </AlertDescription>
-            </Alert>
-
-            <Button
-              variant="outline"
-              onClick={() => {
-                setBackupChunks([]);
-                setCurrentChunkIndex(0);
-              }}
-              className="w-full"
-            >
-              <ChevronLeft className="h-4 w-4 mr-1" /> Back
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <Alert>
-              <AlertDescription>
-                This will generate QR codes containing your wallet backup. For security, consider
-                adding a password.
-              </AlertDescription>
-            </Alert>
-
-            {/* Backup Type Selection */}
-            <div className="space-y-3">
-              <Label className="text-sm font-medium">Backup Type</Label>
-              <RadioGroup
-                value={backupType}
-                onValueChange={(value) => setBackupType(value as 'full' | 'wallets')}
-                className="space-y-3"
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setBackupChunks([]);
+                  setCurrentChunkIndex(0);
+                }}
+                className="w-full"
               >
-                <div className="flex items-start space-x-3">
-                  <RadioGroupItem value="full" id="full" className="mt-1" />
-                  <div className="flex-1">
-                    <Label htmlFor="full" className="font-medium cursor-pointer">
-                      Full Backup
-                    </Label>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Wallets, address book, and settings
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <RadioGroupItem value="wallets" id="wallets" className="mt-1" />
-                  <div className="flex-1">
-                    <Label htmlFor="wallets" className="font-medium cursor-pointer">
-                      Wallets Only
-                    </Label>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Only wallet data (keys and addresses)
-                    </p>
-                  </div>
-                </div>
-              </RadioGroup>
-            </div>
-
-            <div className="space-y-3">
-              <div className="space-y-2">
-                <Label htmlFor="backupPassword">Backup Password (Optional)</Label>
-                <Input
-                  id="backupPassword"
-                  type="password"
-                  value={backupPassword}
-                  onChange={(e) => setBackupPassword(e.target.value)}
-                  placeholder="Enter a password to encrypt your backup"
-                />
-                <p className="text-xs text-muted-foreground">
-                  {backupPassword.length > 0
-                    ? "You'll need this password when restoring"
-                    : 'Without a password, anyone who scans your QR code can access your wallet'}
-                </p>
-              </div>
-
-              <Button onClick={generateBackupQR} disabled={isGenerating} className="w-full">
-                {isGenerating
-                  ? 'Generating...'
-                  : `Generate ${backupType === 'full' ? 'Full' : 'Wallets-Only'} Backup QR Code`}
+                <ChevronLeft className="h-4 w-4 mr-1" /> Back
               </Button>
             </div>
-          </div>
-        )}
-      </TabsContent>
+          ) : (
+            <div className="space-y-4">
+              <Alert>
+                <AlertDescription>
+                  This will generate QR codes containing your wallet keys and addresses. For security, consider
+                  adding a password. QR codes are optimized for mobile scanning and only include essential wallet data.
+                </AlertDescription>
+              </Alert>
+
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="backupPassword">Backup Password (Optional)</Label>
+                  <Input
+                    id="backupPassword"
+                    type="password"
+                    value={backupPassword}
+                    onChange={(e) => setBackupPassword(e.target.value)}
+                    placeholder="Enter a password to encrypt your backup"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {backupPassword.length > 0
+                      ? "You'll need this password when restoring"
+                      : 'Without a password, anyone who scans your QR code can access your wallet'}
+                  </p>
+                </div>
+
+                <Button onClick={generateBackupQR} disabled={isGenerating} className="w-full">
+                  {isGenerating
+                    ? 'Generating...'
+                    : 'Generate Wallet Backup QR Codes'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </TabsContent>
+      )}
 
       {/* Restore Tab */}
       <TabsContent value="restore" className="space-y-4">
@@ -451,7 +486,14 @@ export function BackupQRModal({ open, onClose }: BackupQRModalProps) {
               <div
                 className={`aspect-square w-full ${isMobile ? 'max-w-[250px]' : 'max-w-[300px]'} mx-auto overflow-hidden rounded-md border bg-muted`}
               >
-                <video ref={videoRef} className="h-full w-full object-cover" playsInline />
+                <video
+                  ref={videoRef}
+                  className="h-full w-full object-cover"
+                  playsInline
+                  muted
+                  autoPlay
+                  webkit-playsinline="true"
+                />
               </div>
               <canvas ref={canvasRef} className="hidden" />
             </div>
@@ -519,7 +561,7 @@ export function BackupQRModal({ open, onClose }: BackupQRModalProps) {
             <Alert>
               <AlertDescription>
                 To restore your wallet from a QR code backup, you&apos;ll need to scan the QR code
-                from your other device.
+                from your other device. Hold your phone 8-12 inches away and ensure good lighting for best results.
               </AlertDescription>
             </Alert>
 
@@ -567,10 +609,13 @@ export function BackupQRModal({ open, onClose }: BackupQRModalProps) {
             <DrawerHeader className="text-center">
               <DrawerTitle className="text-xl font-semibold flex items-center justify-center gap-2">
                 <QrCode className="w-5 h-5 text-avian-500" />
-                QR Code Backup & Restore
+                {mode === 'restore-only' ? 'Import from QR Code' : 'QR Code Backup & Restore'}
               </DrawerTitle>
               <DrawerDescription className="text-sm opacity-70 pt-1">
-                Transfer your wallet between devices using QR codes
+                {mode === 'restore-only'
+                  ? 'Restore your wallet from QR code backup'
+                  : 'Transfer your wallet between devices using QR codes'
+                }
               </DrawerDescription>
             </DrawerHeader>
 
@@ -594,10 +639,13 @@ export function BackupQRModal({ open, onClose }: BackupQRModalProps) {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <QrCode className="h-5 w-5" />
-                QR Code Backup & Restore
+                {mode === 'restore-only' ? 'Import from QR Code' : 'QR Code Backup & Restore'}
               </DialogTitle>
               <DialogDescription>
-                Transfer your wallet between devices using QR codes
+                {mode === 'restore-only'
+                  ? 'Restore your wallet from QR code backup'
+                  : 'Transfer your wallet between devices using QR codes'
+                }
               </DialogDescription>
             </DialogHeader>
 

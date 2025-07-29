@@ -62,7 +62,7 @@ export default function TermsModal({ isOpen, onAccept, onDecline }: TermsModalPr
 
           // Calculate if we're at the bottom with a small buffer
           const isAtBottom =
-            scrollHeight <= clientHeight || scrollTop + clientHeight >= scrollHeight - 20;
+            scrollHeight <= clientHeight + 10 || scrollTop + clientHeight >= scrollHeight - 10;
 
           // Only set to true if content is shorter than viewport or user has scrolled to bottom
           if (isAtBottom) {
@@ -76,9 +76,15 @@ export default function TermsModal({ isOpen, onAccept, onDecline }: TermsModalPr
     };
 
     // Check after content has had time to render
-    const timer = setTimeout(checkScrollPosition, 500);
+    const timer = setTimeout(checkScrollPosition, 100);
+    const timer2 = setTimeout(checkScrollPosition, 500);
+    const timer3 = setTimeout(checkScrollPosition, 1000);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
+    };
   }, [isOpen]);
 
   // This is updated to work with ScrollArea's viewport
@@ -90,23 +96,8 @@ export default function TermsModal({ isOpen, onAccept, onDecline }: TermsModalPr
     const viewportNode = e.currentTarget.querySelector('[data-radix-scroll-area-viewport]');
     const target = viewportNode || e.currentTarget;
 
-    // Adding a buffer (20px) to account for rounding and different browser calculations
-    const isScrolledToBottom = target.scrollTop + target.clientHeight >= target.scrollHeight - 20;
-
-    // For debugging uncomment the following:
-    /*
-        if (process.env.NODE_ENV === 'development') {
-            // Debug output to help troubleshoot scrolling issues
-            const debugInfo = {
-                scrollTop: target.scrollTop,
-                clientHeight: target.clientHeight,
-                scrollHeight: target.scrollHeight,
-                sum: target.scrollTop + target.clientHeight,
-                threshold: target.scrollHeight - 20,
-                isScrolledToBottom
-            };
-        }
-        */
+    // Adding a buffer (10px) to account for rounding and different browser calculations
+    const isScrolledToBottom = target.scrollTop + target.clientHeight >= target.scrollHeight - 10;
 
     // Only update state if we've reached the bottom
     // Once set to true, this will never go back to false
@@ -141,12 +132,12 @@ export default function TermsModal({ isOpen, onAccept, onDecline }: TermsModalPr
         const viewport = document.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement;
         if (viewport) {
           // If content is shorter than the viewport or already scrolled to bottom, no need to scroll
-          if (viewport.scrollHeight <= viewport.clientHeight) {
+          if (viewport.scrollHeight <= viewport.clientHeight + 10) {
             setHasScrolledToBottom(true);
           } else {
             // Check if already at bottom (with buffer)
             const isAtBottom =
-              viewport.scrollTop + viewport.clientHeight >= viewport.scrollHeight - 20;
+              viewport.scrollTop + viewport.clientHeight >= viewport.scrollHeight - 10;
             if (isAtBottom) {
               setHasScrolledToBottom(true);
             }
@@ -177,7 +168,7 @@ export default function TermsModal({ isOpen, onAccept, onDecline }: TermsModalPr
 
         <Card className="shadow-sm border border-gray-200 dark:border-gray-800">
           <ScrollArea
-            className="h-56 sm:h-64 md:h-72 rounded-lg bg-white dark:bg-gray-900"
+            className="h-48 sm:h-56 md:h-64 lg:h-72 rounded-lg bg-white dark:bg-gray-900"
             onScrollCapture={handleScroll}
             onLoadCapture={() => {
               // Capture the viewport element once it's loaded
@@ -188,13 +179,13 @@ export default function TermsModal({ isOpen, onAccept, onDecline }: TermsModalPr
           >
             <CardContent
               ref={scrollContentRef}
-              className="p-5 space-y-4 sm:space-y-5 text-sm text-gray-700 dark:text-gray-300 leading-relaxed"
+              className="p-3 sm:p-5 space-y-3 sm:space-y-4 text-xs sm:text-sm text-gray-700 dark:text-gray-300 leading-relaxed"
             >
               <div>
-                <h4 className="font-medium text-gray-900 dark:text-gray-100 text-base">
+                <h4 className="font-medium text-gray-900 dark:text-gray-100 text-sm sm:text-base">
                   MIT License
                 </h4>
-                <p className="mt-2 text-gray-600 dark:text-gray-400">
+                <p className="mt-2 text-gray-600 dark:text-gray-400 text-xs sm:text-sm">
                   Copyright (c) 2024 The Avian Developers
                 </p>
               </div>
@@ -224,8 +215,8 @@ export default function TermsModal({ isOpen, onAccept, onDecline }: TermsModalPr
 
               <Separator className="my-5" />
 
-              <div className="space-y-4">
-                <h4 className="font-medium text-gray-900 dark:text-gray-100 text-base">
+              <div className="space-y-3 sm:space-y-4">
+                <h4 className="font-medium text-gray-900 dark:text-gray-100 text-sm sm:text-base">
                   Important Disclaimer
                 </h4>
                 <p>
@@ -241,8 +232,8 @@ export default function TermsModal({ isOpen, onAccept, onDecline }: TermsModalPr
 
               <Separator className="my-5" />
 
-              <div className="space-y-4">
-                <h4 className="font-medium text-gray-900 dark:text-gray-100 text-base">
+              <div className="space-y-3 sm:space-y-4">
+                <h4 className="font-medium text-gray-900 dark:text-gray-100 text-sm sm:text-base">
                   Privacy Notice
                 </h4>
                 <p>
@@ -278,34 +269,33 @@ export default function TermsModal({ isOpen, onAccept, onDecline }: TermsModalPr
             value={acceptanceChoice || ''}
             onValueChange={(value) => setAcceptanceChoice(value as 'accept' | 'decline')}
           >
-            <div className="flex items-center space-x-3 p-3 rounded-md border border-avian-200 dark:border-blue-700 bg-avian-50 dark:bg-blue-900/20 hover:bg-avian-100 dark:hover:bg-blue-900/30 transition-colors">
+            <div className="flex items-start space-x-3 p-3 sm:p-3 rounded-md border border-avian-200 dark:border-blue-700 bg-avian-50 dark:bg-blue-900/20 hover:bg-avian-100 dark:hover:bg-blue-900/30 transition-colors">
               <RadioGroupItem
                 value="accept"
                 id="accept-terms"
                 disabled={!hasScrolledToBottom}
-                className="text-avian-600 dark:text-blue-400"
+                className="text-avian-600 dark:text-blue-400 mt-0.5"
               />
               <Label
                 htmlFor="accept-terms"
-                className={`text-sm font-medium cursor-pointer ${
-                  hasScrolledToBottom
+                className={`text-xs sm:text-sm font-medium cursor-pointer leading-relaxed ${hasScrolledToBottom
                     ? 'text-avian-700 dark:text-blue-400'
                     : 'text-gray-400 dark:text-gray-500'
-                }`}
+                  }`}
               >
                 I accept the terms of the License Agreement
               </Label>
             </div>
 
-            <div className="flex items-center space-x-3 p-3 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/70 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+            <div className="flex items-start space-x-3 p-3 sm:p-3 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/70 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
               <RadioGroupItem
                 value="decline"
                 id="decline-terms"
-                className="text-gray-600 dark:text-gray-400"
+                className="text-gray-600 dark:text-gray-400 mt-0.5"
               />
               <Label
                 htmlFor="decline-terms"
-                className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer"
+                className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer leading-relaxed"
               >
                 I do not accept the terms of the License Agreement
               </Label>
@@ -313,11 +303,11 @@ export default function TermsModal({ isOpen, onAccept, onDecline }: TermsModalPr
           </RadioGroup>
 
           {/* Action Buttons */}
-          <div className="flex gap-3 w-full justify-end mt-2">
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:justify-end mt-2">
             <Button
               variant="outline"
               onClick={() => setShowDeclineDialog(true)}
-              className="border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+              className="w-full sm:w-auto border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
             >
               <X className="w-4 h-4 mr-2 opacity-70" />
               Exit
@@ -328,7 +318,7 @@ export default function TermsModal({ isOpen, onAccept, onDecline }: TermsModalPr
               disabled={
                 !acceptanceChoice || (acceptanceChoice === 'accept' && !hasScrolledToBottom)
               }
-              className="bg-avian-600 hover:bg-avian-700 dark:bg-blue-600 dark:hover:bg-blue-700 text-white transition-colors disabled:bg-avian-600/50 dark:disabled:bg-blue-600/50 disabled:text-white/70"
+              className="w-full sm:w-auto bg-avian-600 hover:bg-avian-700 dark:bg-blue-600 dark:hover:bg-blue-700 text-white transition-colors disabled:bg-avian-600/50 dark:disabled:bg-blue-600/50 disabled:text-white/70"
             >
               <Check className="w-4 h-4 mr-2" />
               Continue
@@ -344,8 +334,8 @@ export default function TermsModal({ isOpen, onAccept, onDecline }: TermsModalPr
   if (isMobile) {
     return (
       <>
-        <Drawer open={isOpen}>
-          <DrawerContent className="h-[90vh] flex flex-col">
+        <Drawer open={isOpen} onOpenChange={() => { }}>
+          <DrawerContent className="h-[95vh] flex flex-col">
             <DrawerHeader className="flex-shrink-0">
               <DrawerTitle>Terms and License Agreement</DrawerTitle>
             </DrawerHeader>
@@ -388,7 +378,7 @@ export default function TermsModal({ isOpen, onAccept, onDecline }: TermsModalPr
     <>
       <Dialog open={isOpen} onOpenChange={() => onDecline()}>
         <DialogContent
-          className="w-full max-w-md h-[90vh] flex flex-col p-0"
+          className="w-full max-w-2xl h-[90vh] flex flex-col p-0"
           onInteractOutside={(e) => e.preventDefault()}
         >
           <DialogHeader className="p-4 pb-0 flex-shrink-0">
