@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { QrCode, Camera, ArrowLeft, ArrowRight, X, AlertCircle, ChevronLeft } from 'lucide-react';
+import { QrCode, Camera, ArrowLeft, ArrowRight, X, AlertCircle, ChevronLeft, Download } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import jsQR from 'jsqr';
 import { toast } from 'sonner';
@@ -93,6 +93,105 @@ export default function BackupQRPage() {
         } finally {
             setIsGenerating(false);
         }
+    };
+
+    // Download all QR codes as images
+    const downloadAllQRCodes = async () => {
+        try {
+            if (backupChunks.length === 0) {
+                toast.error('No QR codes to download');
+                return;
+            }
+
+            const qrSize = 512; // High resolution for downloads
+            const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
+
+            // If there's only one QR code, download it directly
+            if (backupChunks.length === 1) {
+                await downloadSingleQRCode(backupChunks[0], `avian-wallet-backup-${timestamp}.png`);
+                toast.success('QR code downloaded successfully');
+                return;
+            }
+
+            // For multiple QR codes, download them individually with a delay
+            toast.info(`Downloading ${backupChunks.length} QR codes...`, {
+                description: 'Files will download one by one'
+            });
+
+            for (let i = 0; i < backupChunks.length; i++) {
+                const filename = `avian-wallet-backup-${timestamp}-${String(i + 1).padStart(2, '0')}-of-${String(backupChunks.length).padStart(2, '0')}.png`;
+                await downloadSingleQRCode(backupChunks[i], filename);
+
+                // Add a small delay between downloads to prevent browser blocking
+                if (i < backupChunks.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+            }
+
+            toast.success(`Downloaded ${backupChunks.length} QR codes successfully`, {
+                description: 'You can now print or share these QR codes safely'
+            });
+
+        } catch (error) {
+            console.error('Download error:', error);
+            toast.error('Failed to download QR codes', {
+                description: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    };
+
+    // Helper function to download a single QR code
+    const downloadSingleQRCode = async (qrData: string, filename: string): Promise<void> => {
+        return new Promise((resolve, reject) => {
+            try {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    reject(new Error('Canvas context not available'));
+                    return;
+                }
+
+                const qrSize = 512;
+                canvas.width = qrSize;
+                canvas.height = qrSize;
+
+                // Use the qrcode library for reliable QR code generation
+                import('qrcode').then((QRCode) => {
+                    QRCode.toCanvas(canvas, qrData, {
+                        width: qrSize,
+                        margin: 4,
+                        color: {
+                            dark: '#000000',
+                            light: '#FFFFFF'
+                        },
+                        errorCorrectionLevel: 'L'
+                    }, (error) => {
+                        if (error) {
+                            reject(error);
+                            return;
+                        }
+
+                        canvas.toBlob((blob) => {
+                            if (blob) {
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = filename;
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                                URL.revokeObjectURL(url);
+                                resolve();
+                            } else {
+                                reject(new Error('Failed to create blob'));
+                            }
+                        }, 'image/png');
+                    });
+                }).catch(reject);
+            } catch (error) {
+                reject(error);
+            }
+        });
     };
 
     // Handle camera scanning for restore
@@ -585,16 +684,29 @@ export default function BackupQRPage() {
                                             </AlertDescription>
                                         </Alert>
 
-                                        <Button
-                                            variant="outline"
-                                            onClick={() => {
-                                                setBackupChunks([]);
-                                                setCurrentChunkIndex(0);
-                                            }}
-                                            className="w-full"
-                                        >
-                                            <ChevronLeft className="h-4 w-4 mr-2" /> Generate New Backup
-                                        </Button>
+                                        <div className="space-y-3">
+                                            <Button
+                                                onClick={downloadAllQRCodes}
+                                                variant="default"
+                                                className="w-full"
+                                                size="lg"
+                                            >
+                                                <Download className="h-4 w-4 mr-2" />
+                                                Download QR Code{backupChunks.length > 1 ? 's' : ''}
+                                                {backupChunks.length > 1 && ` (${backupChunks.length} files)`}
+                                            </Button>
+
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => {
+                                                    setBackupChunks([]);
+                                                    setCurrentChunkIndex(0);
+                                                }}
+                                                className="w-full"
+                                            >
+                                                <ChevronLeft className="h-4 w-4 mr-2" /> Generate New Backup
+                                            </Button>
+                                        </div>
                                     </div>
                                 ) : (
                                     <div className="space-y-6">
