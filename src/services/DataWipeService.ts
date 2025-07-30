@@ -28,21 +28,8 @@ export class DataWipeService {
             // Delete IndexedDB databases
             if ('indexedDB' in window) {
                 try {
-                    // Try to get all databases and delete them
-                    if ('databases' in indexedDB) {
-                        const databases = await indexedDB.databases();
-                        for (const db of databases) {
-                            if (db.name) {
-                                indexedDB.deleteDatabase(db.name);
-                            }
-                        }
-                    } else {
-                        // Fallback: delete common database names
-                        const commonDatabases = ['avian-wallet-db', 'wallet-cache', 'transaction-db'];
-                        for (const dbName of commonDatabases) {
-                            (indexedDB as IDBFactory).deleteDatabase(dbName);
-                        }
-                    }
+                    const dbName = 'AvianFlightDeck';
+                    await indexedDB.deleteDatabase(dbName);
                 } catch (error) {
                     result.errors.push(`IndexedDB cleanup failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
                 }
@@ -90,6 +77,6 @@ export class DataWipeService {
      * Reload the page after wiping data
      */
     static reloadApp(): void {
-        window.location.reload();
+        window.location.href = '/';
     }
 }
