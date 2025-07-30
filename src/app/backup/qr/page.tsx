@@ -42,11 +42,20 @@ export default function BackupQRPage() {
     const [restoreError, setRestoreError] = useState<string | null>(null);
     const [lastScannedChunk, setLastScannedChunk] = useState<string | null>(null);
     const [scanPaused, setScanPaused] = useState(false);
+    const [isProcessingChunk, setIsProcessingChunk] = useState(false);
+    const [duplicateAlert, setDuplicateAlert] = useState<string | null>(null);
     const isMobile = useMediaQuery('(max-width: 640px)');
 
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const requestRef = useRef<number | null>(null);
+
+    // Use refs to track current state synchronously to prevent race conditions
+    const currentScannedChunks = useRef<string[]>([]);
+    const currentScannedIndices = useRef<Set<number>>(new Set());
+    const isCurrentlyProcessing = useRef<boolean>(false);
+    const isCameraActiveRef = useRef<boolean>(false);
+    const scanPausedRef = useRef<boolean>(false);
 
     // Generate QR code chunks for backup
     const generateBackupQR = async () => {
@@ -98,6 +107,15 @@ export default function BackupQRPage() {
             setRestoreError(null);
             setScanPaused(false);
             setLastScannedChunk(null);
+            setIsProcessingChunk(false);
+            setDuplicateAlert(null);
+
+            // Reset refs to ensure synchronous state tracking
+            currentScannedChunks.current = [];
+            currentScannedIndices.current = new Set();
+            isCurrentlyProcessing.current = false;
+            isCameraActiveRef.current = true;
+            scanPausedRef.current = false;
 
             qrBackupLogger.info('Starting QR scanner');
 
@@ -123,7 +141,7 @@ export default function BackupQRPage() {
                             qrBackupLogger.info('Video playing, scanner ready');
                             // Start scanning after a short delay to ensure video is fully ready
                             setTimeout(() => {
-                                if (isCameraActive && videoRef.current) {
+                                if (isCameraActiveRef.current && videoRef.current) {
                                     qrBackupLogger.info(`Video ready state: ${videoRef.current.readyState}, dimensions: ${videoRef.current.videoWidth}x${videoRef.current.videoHeight}`);
                                     scanQRCode();
                                 }
@@ -177,12 +195,16 @@ export default function BackupQRPage() {
         setIsCameraActive(false);
         setIsScanning(false);
         setScanPaused(false);
+        setIsProcessingChunk(false);
+        isCurrentlyProcessing.current = false;
+        isCameraActiveRef.current = false;
+        scanPausedRef.current = false;
     };
 
     // Process each video frame to scan for QR codes
     const scanQRCode = () => {
-        if (!videoRef.current || !canvasRef.current || !isCameraActive || scanPaused) {
-            qrBackupLogger.debug('Scanning stopped: missing refs, inactive camera, or paused');
+        if (!videoRef.current || !canvasRef.current || !isCameraActiveRef.current || scanPausedRef.current || isCurrentlyProcessing.current) {
+            qrBackupLogger.debug('Scanning stopped: missing refs, inactive camera, paused, or processing chunk');
             return;
         }
 
@@ -221,23 +243,33 @@ export default function BackupQRPage() {
 
                 // Check if this chunk contains our backup header
                 if (qrCode.data.includes('AVIAN_QR_CHUNK') || qrCode.data.includes('AVIAN_WALLET_BACKUP')) {
+                    // Use ref to check processing status synchronously
+                    if (isCurrentlyProcessing.current) {
+                        qrBackupLogger.debug('Already processing a chunk, skipping');
+                        requestRef.current = requestAnimationFrame(scanQRCode);
+                        return;
+                    }
+
+                    // Immediately set processing flag in ref
+                    isCurrentlyProcessing.current = true;
+                    setIsProcessingChunk(true);
+
                     // Get chunk information first
                     const chunkInfo = BackupService.getQRChunkInfo(qrCode.data);
 
-                    // Check if we already have this chunk by index (not just content)
-                    const isDuplicateByIndex = chunkInfo && scannedChunkIndices.has(chunkInfo.index);
-                    const isDuplicateByContent = scannedChunks.includes(qrCode.data);
+                    // Check duplicates using current ref values
+                    const isDuplicateByIndex = chunkInfo && currentScannedIndices.current.has(chunkInfo.index);
+                    const isDuplicateByContent = currentScannedChunks.current.includes(qrCode.data);
 
                     if (!isDuplicateByIndex && !isDuplicateByContent) {
-                        const updatedChunks = [...scannedChunks, qrCode.data];
-                        setScannedChunks(updatedChunks);
-                        setLastScannedChunk(qrCode.data);
+                        qrBackupLogger.info(`Processing new chunk. Current state: ${currentScannedChunks.current.length} chunks, ${currentScannedIndices.current.size} indices`);
 
-                        // Track which chunk index we've scanned
+                        // Update refs immediately (synchronous)
+                        const newChunk = qrCode.data;
+                        currentScannedChunks.current = [...currentScannedChunks.current, newChunk];
+
                         if (chunkInfo) {
-                            const updatedIndices = new Set(scannedChunkIndices);
-                            updatedIndices.add(chunkInfo.index);
-                            setScannedChunkIndices(updatedIndices);
+                            currentScannedIndices.current.add(chunkInfo.index);
 
                             // Set total expected chunks if not already set
                             if (totalExpectedChunks === null) {
@@ -245,32 +277,56 @@ export default function BackupQRPage() {
                             }
 
                             qrBackupLogger.debug(`Added chunk ${chunkInfo.index} of ${chunkInfo.totalChunks}`);
+                            qrBackupLogger.info(`Updated state: ${currentScannedChunks.current.length} chunks, ${currentScannedIndices.current.size} indices (${Array.from(currentScannedIndices.current).sort().join(', ')})`);
                         }
 
-                        // Pause scanning after successful read
+                        // Update React state to match refs
+                        setScannedChunks([...currentScannedChunks.current]);
+                        setScannedChunkIndices(new Set(currentScannedIndices.current));
+                        setLastScannedChunk(newChunk);
                         setScanPaused(true);
+                        scanPausedRef.current = true;
+                        setDuplicateAlert(null); // Clear any duplicate alert
+
+                        // Stop the animation frame to ensure scanning actually pauses
+                        if (requestRef.current) {
+                            cancelAnimationFrame(requestRef.current);
+                            requestRef.current = null;
+                        }
 
                         // Attempt to determine total chunks and progress
                         try {
                             if (chunkInfo) {
-                                const progress = (updatedChunks.length / chunkInfo.totalChunks) * 100;
+                                // Calculate progress based on current ref values
+                                const currentChunkCount = currentScannedChunks.current.length;
+                                const progress = (currentChunkCount / chunkInfo.totalChunks) * 100;
                                 setScanProgress(progress);
 
-                                qrBackupLogger.debug(`Progress: ${updatedChunks.length}/${chunkInfo.totalChunks} (${progress.toFixed(1)}%)`);
+                                qrBackupLogger.debug(`Progress: ${currentChunkCount}/${chunkInfo.totalChunks} (${progress.toFixed(1)}%)`);
 
                                 // Show progress with specific chunk information
                                 toast.info(`Scanned QR code ${chunkInfo.index} of ${chunkInfo.totalChunks}`, {
-                                    description: updatedChunks.length < chunkInfo.totalChunks ?
+                                    description: currentChunkCount < chunkInfo.totalChunks ?
                                         'Click "Continue Scanning" to scan another QR code' :
                                         'All chunks collected! Processing backup...',
                                 });
 
                                 // Check if we've completed scanning
-                                if (updatedChunks.length >= chunkInfo.totalChunks) {
+                                if (currentChunkCount >= chunkInfo.totalChunks) {
                                     // We have all chunks, stop scanning and restore
                                     qrBackupLogger.info('All chunks collected, starting restore');
-                                    handleCompleteRestore(updatedChunks);
+                                    // Reset processing flag
+                                    isCurrentlyProcessing.current = false;
+                                    setIsProcessingChunk(false);
+                                    // Use the current ref values
+                                    setTimeout(() => {
+                                        handleCompleteRestore([...currentScannedChunks.current]);
+                                    }, 100);
                                     return;
+                                } else {
+                                    // Reset processing flag after successful chunk processing
+                                    isCurrentlyProcessing.current = false;
+                                    setIsProcessingChunk(false);
                                 }
                             } else {
                                 qrBackupLogger.warn('Could not parse chunk info from QR data');
@@ -279,9 +335,13 @@ export default function BackupQRPage() {
                                     description: 'Processing backup...',
                                 });
 
+                                // Reset processing flag
+                                isCurrentlyProcessing.current = false;
+                                setIsProcessingChunk(false);
+
                                 // Try to restore immediately for single QR backups
                                 setTimeout(() => {
-                                    handleCompleteRestore(updatedChunks);
+                                    handleCompleteRestore([...currentScannedChunks.current]);
                                 }, 100);
                             }
                         } catch (error) {
@@ -291,17 +351,23 @@ export default function BackupQRPage() {
                                 description: 'Processing backup...',
                             });
 
+                            // Reset processing flag
+                            isCurrentlyProcessing.current = false;
+                            setIsProcessingChunk(false);
+
                             setTimeout(() => {
-                                handleCompleteRestore(updatedChunks);
+                                handleCompleteRestore([...currentScannedChunks.current]);
                             }, 100);
                         }
                     } else {
+                        // Reset processing flag for duplicates
+                        isCurrentlyProcessing.current = false;
+                        setIsProcessingChunk(false);
+
                         qrBackupLogger.debug(`Chunk already scanned: ${chunkInfo ? `index ${chunkInfo.index}` : 'duplicate content'}, skipping`);
-                        // Show a helpful message that this chunk was already scanned
+                        // Update alert instead of showing toast for duplicates
                         if (chunkInfo && isDuplicateByIndex) {
-                            toast.info(`QR code ${chunkInfo.index} already scanned`, {
-                                description: `You've already scanned this QR code. ${totalExpectedChunks ? `Still need ${totalExpectedChunks - scannedChunkIndices.size} more codes.` : 'Scan a different QR code.'}`,
-                            });
+                            setDuplicateAlert(`QR code ${chunkInfo.index} already scanned. ${totalExpectedChunks ? `Still need ${totalExpectedChunks - currentScannedIndices.current.size} more codes.` : 'Scan a different QR code.'}`);
                         }
                     }
                 } else {
@@ -312,8 +378,8 @@ export default function BackupQRPage() {
             qrBackupLogger.error('Error during QR scanning:', error);
         }
 
-        // Continue scanning only if not paused
-        if (!scanPaused) {
+        // Continue scanning only if not paused and not processing
+        if (!scanPausedRef.current && !isCurrentlyProcessing.current) {
             requestRef.current = requestAnimationFrame(scanQRCode);
         }
     };
@@ -322,7 +388,10 @@ export default function BackupQRPage() {
     const continueScanningAfterPause = () => {
         qrBackupLogger.info('Resuming QR scanner after pause');
         setScanPaused(false);
-        if (isCameraActive && videoRef.current && canvasRef.current) {
+        setIsProcessingChunk(false); // Reset processing flag when continuing
+        isCurrentlyProcessing.current = false; // Reset ref as well
+        scanPausedRef.current = false; // Reset pause ref as well
+        if (isCameraActiveRef.current && videoRef.current && canvasRef.current) {
             requestRef.current = requestAnimationFrame(scanQRCode);
         }
     };
@@ -403,6 +472,12 @@ export default function BackupQRPage() {
             stopScanner();
         };
     }, []);
+
+    // Debug state changes
+    useEffect(() => {
+        qrBackupLogger.info(`State update - Chunks: ${scannedChunks.length}, Indices: ${scannedChunkIndices.size} (${Array.from(scannedChunkIndices).sort().join(', ')}), Paused: ${scanPaused}, Processing: ${isProcessingChunk}`);
+        qrBackupLogger.info(`Ref values - Chunks: ${currentScannedChunks.current.length}, Indices: ${currentScannedIndices.current.size} (${Array.from(currentScannedIndices.current).sort().join(', ')}), Processing: ${isCurrentlyProcessing.current}, CameraActive: ${isCameraActiveRef.current}, Paused: ${scanPausedRef.current}`);
+    }, [scannedChunks.length, scannedChunkIndices.size, scanPaused, isProcessingChunk]);
 
     const handleBack = () => {
         stopScanner();
@@ -610,6 +685,15 @@ export default function BackupQRPage() {
                                                         Green = Scanned, Gray = Still needed
                                                     </p>
                                                 </div>
+                                            )}
+
+                                            {/* Duplicate Alert */}
+                                            {duplicateAlert && (
+                                                <Alert>
+                                                    <AlertDescription className="text-center">
+                                                        {duplicateAlert}
+                                                    </AlertDescription>
+                                                </Alert>
                                             )}
 
                                             <p className="text-sm text-center text-muted-foreground">
