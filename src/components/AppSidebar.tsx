@@ -199,7 +199,7 @@ export function AppSidebar({ children, ...props }: AppSidebarProps & React.Compo
                                     viewBox="0 0 64 64"
                                     fill="currentColor"
                                 >
-                                    <image href="/avian_logo.svg" width="64" height="64" />
+                                    <image href="/Avian_logo.svg" width="64" height="64" />
                                 </svg>
                             </div>
                             <div className="grid flex-1 text-left text-sm leading-tight">
