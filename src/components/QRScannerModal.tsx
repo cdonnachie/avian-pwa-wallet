@@ -114,7 +114,6 @@ export default function QRScannerModal({
           setIsProcessing(false);
         }
       } catch (err) {
-        console.error('QR scan error:', err);
         setError('Failed to parse QR code: ' + (err instanceof Error ? err.message : 'Unknown error'));
         setIsProcessing(false);
       }
@@ -152,9 +151,6 @@ export default function QRScannerModal({
 
       await qrScannerRef.current.start();
     } catch (err) {
-
-      console.error('Failed to start camera:', err);
-
       // Handle specific QrScanner errors
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
 
@@ -195,7 +191,6 @@ export default function QRScannerModal({
       // trigger the browser's permission prompt if needed
 
     } catch (err) {
-      console.error('Permission request failed:', err);
       setError('Please allow camera access in your browser settings and try again.');
       setPermissionDenied(true);
     }
@@ -216,14 +211,11 @@ export default function QRScannerModal({
 
         // Don't automatically start scanning - let user decide
       } catch (err) {
-        console.error('Failed to check camera:', err);
-
         // Fallback to qr-scanner library check
         try {
           const hasCamera = await QrScanner.hasCamera();
           setHasCamera(hasCamera);
         } catch (fallbackErr) {
-          console.error('Fallback camera check failed:', fallbackErr);
           setHasCamera(false);
         }
 
@@ -276,7 +268,6 @@ export default function QRScannerModal({
       const result = await QrScanner.scanImage(file);
       handleScanResult(result);
     } catch (err) {
-      console.error('File scan error:', err);
       setError('No QR code found in image: ' + (err instanceof Error ? err.message : 'Unknown error'));
       setIsProcessing(false);
 
