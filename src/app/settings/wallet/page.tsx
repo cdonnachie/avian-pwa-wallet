@@ -66,7 +66,6 @@ export default function WalletSettingsPage() {
                 const count = await StorageService.getChangeAddressCount();
                 setAddressCount(count);
             } catch (error) {
-                console.error('Failed to load address count preference:', error);
                 // Set default on error
                 setAddressCount(5);
             }

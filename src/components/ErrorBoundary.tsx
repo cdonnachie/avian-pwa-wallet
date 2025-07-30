@@ -132,6 +132,7 @@ export class ErrorBoundary extends Component<Props, State> {
           metadata: {
             isolate: this.props.isolate,
             hasCustomFallback: !!this.props.fallback,
+            errorId,
           },
         },
         {
@@ -404,11 +405,11 @@ export function withErrorBoundary<P extends object>(
   Component: React.ComponentType<P>,
   errorBoundaryProps?: Omit<Props, 'children'>,
 ) {
-  const WrappedComponent = React.forwardRef<any, P>((props, ref) => (
+  const WrappedComponent = (props: P) => (
     <ErrorBoundary {...errorBoundaryProps}>
-      <Component {...(props as any)} ref={ref} />
+      <Component {...props} />
     </ErrorBoundary>
-  ));
+  );
 
   WrappedComponent.displayName = `withErrorBoundary(${Component.displayName || Component.name})`;
 

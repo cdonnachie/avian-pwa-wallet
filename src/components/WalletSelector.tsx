@@ -105,6 +105,7 @@ export function WalletSelector() {
             const active = walletsWithBalance.find(w => w.isActive);
             setCurrentWallet(active || null);
         } catch (error) {
+            // eslint-disable-next-line no-console
             console.error('Failed to load wallets:', error);
         }
     };

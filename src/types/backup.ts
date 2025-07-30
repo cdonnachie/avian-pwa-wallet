@@ -5,9 +5,9 @@ export interface WalletBackup {
   addressBook: BackupAddress[];
   settings: BackupSettings;
   metadata: BackupMetadata;
-  transactions?: BackupTransaction[]; // Add transaction history
-  auditLog?: BackupSecurityAudit[]; // Add security audit log
-  watchedAddresses?: BackupWatchedAddress[]; // Add watched addresses
+  transactions?: BackupTransaction[];
+  auditLog?: BackupSecurityAudit[];
+  watchedAddresses?: BackupWatchedAddress[];
 }
 
 // Define transaction structure for backup
@@ -42,7 +42,7 @@ export interface BackupWallet {
   isActive: boolean;
   createdAt: number;
   lastAccessed?: number;
-  biometricEnabled?: boolean; // Flag indicating if biometrics are enabled for this wallet
+  biometricEnabled?: boolean;
 }
 
 export interface BackupAddress {
@@ -73,7 +73,7 @@ export interface BackupSettings {
       maxEntries: number;
     };
   };
-  preferences?: Record<string, any>; // For other app preferences
+  preferences?: Record<string, string | number | boolean>;
 }
 
 export interface BackupMetadata {
