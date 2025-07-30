@@ -356,21 +356,21 @@ export default function WalletSettingsPage() {
         if (activeSection === 'recovery') {
             return (
                 <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <FileText className="w-5 h-5" />
+                    <CardHeader className="pb-3 sm:pb-6">
+                        <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                            <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
                             Export Recovery Phrase
                         </CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="px-3 sm:px-6 pb-4 sm:pb-6">
                         <div className="space-y-4">
-                            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-4">
-                                <div className="flex items-start gap-3">
-                                    <div className="w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                        <AlertTriangle className="w-3 h-3 text-white" />
+                            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-3 sm:p-4">
+                                <div className="flex items-start gap-2 sm:gap-3">
+                                    <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-amber-500 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                        <AlertTriangle className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />
                                     </div>
-                                    <div>
-                                        <h4 className="font-medium text-amber-800 dark:text-amber-200 mb-1">
+                                    <div className="min-w-0 flex-1">
+                                        <h4 className="font-medium text-amber-800 dark:text-amber-200 mb-1 text-sm sm:text-base">
                                             Security Warning
                                         </h4>
                                         <p className="text-sm text-amber-700 dark:text-amber-300">
@@ -382,7 +382,7 @@ export default function WalletSettingsPage() {
 
                             {!exportedMnemonic ? (
                                 <div className="space-y-3">
-                                    <p className="text-sm text-muted-foreground">
+                                    <p className="text-xs sm:text-sm text-muted-foreground">
                                         Export your wallet's mnemonic recovery phrase. This 12 or 24-word phrase can be used to restore your wallet on any compatible device.
                                     </p>
                                     <Button
@@ -580,24 +580,24 @@ export default function WalletSettingsPage() {
         if (activeSection === 'privatekey') {
             return (
                 <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Key className="w-5 h-5" />
+                    <CardHeader className="pb-3 sm:pb-6">
+                        <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                            <Key className="w-4 h-4 sm:w-5 sm:h-5" />
                             Export Private Key
                         </CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="px-3 sm:px-6 pb-4 sm:pb-6">
                         <div className="space-y-4">
-                            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-4">
-                                <div className="flex items-start gap-3">
-                                    <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                        <AlertTriangle className="w-3 h-3 text-white" />
+                            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-3 sm:p-4">
+                                <div className="flex items-start gap-2 sm:gap-3">
+                                    <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                        <AlertTriangle className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />
                                     </div>
-                                    <div>
-                                        <h4 className="font-medium text-red-800 dark:text-red-200 mb-1">
+                                    <div className="min-w-0 flex-1">
+                                        <h4 className="font-medium text-red-800 dark:text-red-200 mb-1 text-sm sm:text-base">
                                             Critical Security Warning
                                         </h4>
-                                        <p className="text-sm text-red-700 dark:text-red-300">
+                                        <p className="text-xs sm:text-sm text-red-700 dark:text-red-300">
                                             Your private key provides complete control over your funds. Only export when absolutely necessary and keep it secure.
                                         </p>
                                     </div>
@@ -606,7 +606,7 @@ export default function WalletSettingsPage() {
 
                             {!exportedPrivateKey ? (
                                 <div className="space-y-3">
-                                    <p className="text-sm text-muted-foreground">
+                                    <p className="text-xs sm:text-sm text-muted-foreground">
                                         Export your wallet's private key in WIF (Wallet Import Format). This key can be used to import your wallet into any compatible application.
                                     </p>
                                     <Button
@@ -694,24 +694,24 @@ export default function WalletSettingsPage() {
         if (activeSection === 'encryption') {
             return (
                 <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            {isEncrypted ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
+                    <CardHeader className="pb-3 sm:pb-6">
+                        <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                            {isEncrypted ? <Lock className="w-4 h-4 sm:w-5 sm:h-5" /> : <Unlock className="w-4 h-4 sm:w-5 sm:h-5" />}
                             Wallet Encryption
                         </CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="px-3 sm:px-6 pb-4 sm:pb-6">
                         <div className="space-y-4">
-                            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
-                                <div className="flex items-start gap-3">
-                                    <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                        <Lock className="w-3 h-3 text-white" />
+                            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-3 sm:p-4">
+                                <div className="flex items-start gap-2 sm:gap-3">
+                                    <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                        <Lock className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />
                                     </div>
-                                    <div>
-                                        <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-1">
+                                    <div className="min-w-0 flex-1">
+                                        <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-1 text-sm sm:text-base">
                                             Wallet Encryption Status
                                         </h4>
-                                        <p className="text-sm text-blue-700 dark:text-blue-300">
+                                        <p className="text-xs sm:text-sm text-blue-700 dark:text-blue-300">
                                             {isEncrypted
                                                 ? 'Your wallet is currently encrypted with a password. This provides additional security for your private keys.'
                                                 : 'Your wallet is not encrypted. Consider encrypting it with a password for additional security.'
@@ -785,25 +785,25 @@ export default function WalletSettingsPage() {
         if (activeSection === 'hdconfig') {
             return (
                 <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Hash className="w-5 h-5" />
+                    <CardHeader className="pb-3 sm:pb-6">
+                        <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                            <Hash className="w-4 h-4 sm:w-5 sm:h-5" />
                             HD Wallet Configuration
                         </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <div className="space-y-6">
+                    <CardContent className="px-3 sm:px-6 pb-4 sm:pb-6">
+                        <div className="space-y-4 sm:space-y-6">
                             {currentWalletAddress && (
-                                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
-                                    <div className="flex items-start gap-3">
-                                        <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                            <Wallet className="w-3 h-3 text-white" />
+                                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-3 sm:p-4">
+                                    <div className="flex items-start gap-2 sm:gap-3">
+                                        <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                            <Wallet className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />
                                         </div>
-                                        <div>
-                                            <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-1">
+                                        <div className="min-w-0 flex-1">
+                                            <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-1 text-sm sm:text-base">
                                                 Current Wallet
                                             </h4>
-                                            <p className="text-sm text-blue-700 dark:text-blue-300 font-mono">
+                                            <p className="text-xs sm:text-sm text-blue-700 dark:text-blue-300 font-mono break-all">
                                                 {currentWalletAddress}
                                             </p>
                                         </div>
@@ -811,16 +811,16 @@ export default function WalletSettingsPage() {
                                 </div>
                             )}
 
-                            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-4">
-                                <div className="flex items-start gap-3">
-                                    <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                        <Hash className="w-3 h-3 text-white" />
+                            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-3 sm:p-4">
+                                <div className="flex items-start gap-2 sm:gap-3">
+                                    <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                        <Hash className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />
                                     </div>
-                                    <div>
-                                        <h4 className="font-medium text-green-800 dark:text-green-200 mb-1">
+                                    <div className="min-w-0 flex-1">
+                                        <h4 className="font-medium text-green-800 dark:text-green-200 mb-1 text-sm sm:text-base">
                                             HD Wallet Settings
                                         </h4>
-                                        <p className="text-sm text-green-700 dark:text-green-300">
+                                        <p className="text-xs sm:text-sm text-green-700 dark:text-green-300">
                                             Configure how many addresses your HD wallet generates and manages. More addresses provide better privacy but use more resources.
                                         </p>
                                     </div>
@@ -828,8 +828,8 @@ export default function WalletSettingsPage() {
                             </div>
 
                             <div className="space-y-4">
-                                <Label htmlFor="hdAddressCount"># of Addresses to Show</Label>
-                                <div className="flex items-center space-x-4">
+                                <Label htmlFor="hdAddressCount" className="text-sm sm:text-base"># of Addresses to Show</Label>
+                                <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
                                     <div className="flex-1">
                                         <Slider
                                             id="hdAddressCount"
@@ -846,16 +846,16 @@ export default function WalletSettingsPage() {
                                             <span>20</span>
                                         </div>
                                     </div>
-                                    <div className="flex items-center ml-3">
-                                        <Badge className="mr-2 bg-amber-200 text-amber-900 dark:bg-amber-800 dark:text-amber-100">
+                                    <div className="flex items-center justify-center sm:justify-start gap-2 sm:ml-3">
+                                        <Badge className="bg-amber-200 text-amber-900 dark:bg-amber-800 dark:text-amber-100 text-xs">
                                             ×{addressCount}
                                         </Badge>
-                                        <Badge className="bg-indigo-200 text-indigo-900 dark:bg-indigo-800 dark:text-indigo-100">
+                                        <Badge className="bg-indigo-200 text-indigo-900 dark:bg-indigo-800 dark:text-indigo-100 text-xs">
                                             ×{addressCount}
                                         </Badge>
                                     </div>
                                 </div>
-                                <p className="text-sm text-muted-foreground">
+                                <p className="text-xs sm:text-sm text-muted-foreground">
                                     Shows both receiving and change addresses. Receiving addresses are used for incoming transactions, while change addresses handle leftover funds from outgoing transactions.
                                 </p>
                             </div>
@@ -866,7 +866,7 @@ export default function WalletSettingsPage() {
         }
 
         return (
-            <div className="grid gap-4">
+            <div className="grid gap-3 sm:gap-4">
                 {sections.map((section) => {
                     const IconComponent = section.icon;
                     return (
@@ -875,14 +875,14 @@ export default function WalletSettingsPage() {
                             className="cursor-pointer hover:shadow-lg transition-all duration-200"
                             onClick={section.action}
                         >
-                            <CardHeader>
+                            <CardHeader className="p-4 sm:p-6">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                                        <IconComponent className="w-6 h-6 text-primary" />
+                                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                        <IconComponent className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
                                     </div>
-                                    <div>
-                                        <CardTitle className="text-lg">{section.title}</CardTitle>
-                                        <p className="text-sm text-muted-foreground mt-1">
+                                    <div className="min-w-0 flex-1">
+                                        <CardTitle className="text-base sm:text-lg">{section.title}</CardTitle>
+                                        <p className="text-xs sm:text-sm text-muted-foreground mt-1">
                                             {section.description}
                                         </p>
                                     </div>
@@ -903,14 +903,14 @@ export default function WalletSettingsPage() {
                         activeSection === 'recovery' ? 'Export Recovery Phrase' :
                             activeSection === 'privatekey' ? 'Export Private Key' :
                                 activeSection === 'encryption' ? 'Wallet Encryption' :
-                                    activeSection === 'hdconfig' ? 'HD Wallet Configuration' :
+                                    activeSection === 'hdconfig' ? 'HD Wallet Config' :
                                         'Wallet Management',
                 showBackButton: true,
                 customBackAction: handleBack,
                 actions: <HeaderActions />
             }}
         >
-            <div className="space-y-6 max-w-screen-2xl">
+            <div className="space-y-4 sm:space-y-6 max-w-screen-2xl px-2 sm:px-0">
                 {renderContent()}
             </div>
 

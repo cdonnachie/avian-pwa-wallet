@@ -2,18 +2,19 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bug, Code, Eye } from 'lucide-react';
+import { Bug, Code, Eye, Trash2 } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import MessageUtilities from '@/components/MessageUtilities';
 import { InlineLogViewer } from '@/components/InlineLogViewer';
+import { DataWipePanel } from '@/components/DataWipePanel';
 import { AppLayout } from '@/components/AppLayout';
 import { HeaderActions } from '@/components/HeaderActions';
 import GradientBackground from '@/components/GradientBackground';
 
 export default function AdvancedSettingsPage() {
     const router = useRouter();
-    const [activeSection, setActiveSection] = useState<'logs' | 'messages' | 'watched' | null>(null);
+    const [activeSection, setActiveSection] = useState<'logs' | 'messages' | 'watched' | 'datawipe' | null>(null);
 
     const handleBack = () => {
         if (activeSection) {
@@ -45,6 +46,13 @@ export default function AdvancedSettingsPage() {
             icon: Eye,
             action: () => router.push('/settings/watched-addresses'),
         },
+        {
+            id: 'datawipe' as const,
+            title: 'Reset Application',
+            description: 'Wipe all data and start fresh (useful for mobile)',
+            icon: Trash2,
+            action: () => setActiveSection('datawipe'),
+        },
     ];
 
     const renderContent = () => {
@@ -64,6 +72,20 @@ export default function AdvancedSettingsPage() {
 
         if (activeSection === 'messages') {
             return <MessageUtilities />;
+        }
+
+        if (activeSection === 'datawipe') {
+            return (
+                <div className="space-y-6">
+                    <div>
+                        <h2 className="text-lg font-semibold mb-2">Reset Application</h2>
+                        <p className="text-muted-foreground">
+                            Completely wipe all application data and start fresh. This is particularly useful on mobile devices where dev tools are not accessible.
+                        </p>
+                    </div>
+                    <DataWipePanel />
+                </div>
+            );
         }
 
         return (
@@ -110,7 +132,8 @@ export default function AdvancedSettingsPage() {
             headerProps={{
                 title: activeSection === 'logs' ? 'Debug Logs' :
                     activeSection === 'messages' ? 'Message Utilities' :
-                        'Advanced Settings',
+                        activeSection === 'datawipe' ? 'Reset Application' :
+                            'Advanced Settings',
                 showBackButton: true,
                 customBackAction: handleBack,
                 actions: <HeaderActions />

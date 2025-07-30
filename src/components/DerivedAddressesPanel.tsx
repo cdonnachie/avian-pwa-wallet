@@ -163,7 +163,7 @@ const AddressDetailsDialog = ({
                     </div>
 
                     {/* Transaction History */}
-                    <div className="space-y-1.5">
+                    <div className="space-y-1.5 mb-4">
                         <Label className="text-sm font-medium text-gray-600 dark:text-gray-300">Status</Label>
                         <div>
                             {addressDetails.hasTransactions ? (
@@ -725,7 +725,7 @@ export default function DerivedAddressesPanel() {
 
     return (
         <Card className="mt-4">
-            <CardContent className={`pt-6 ${isMobile ? 'px-4 pb-4' : ''}`}>
+            <CardContent className={`pt-6 pb-6 ${isMobile ? 'px-4' : 'px-6'}`}>
                 <div
                     className="flex mb-4 items-center justify-between cursor-pointer"
                     onClick={toggleExpand}
@@ -768,216 +768,251 @@ export default function DerivedAddressesPanel() {
                 </div>
 
                 {isExpanded && (
-                    <div className="mt-4">
+                    <div className="mt-4 space-y-4">
                         <LoadingIndicator isLoading={isLoading} />
-                        <div className="mb-6">
-                            <Label htmlFor="addressCount"># of Addresses to Show</Label>
-                            <div className="flex items-center space-x-4">
-                                <div className="flex-1">
-                                    <Slider
-                                        id="addressCount"
-                                        min={1}
-                                        max={20}
-                                        step={1}
-                                        value={[addressCount]}
-                                        onValueChange={(value) => handleAddressCountChange(value[0])}
-                                        className="mt-2"
-                                    />
-                                    <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                                        <span>1</span>
-                                        <span className="font-medium text-primary">{addressCount}</span>
-                                        <span>20</span>
+
+                        {/* Show Load Addresses button when no addresses are loaded */}
+                        {addresses.length === 0 && !isLoading && (
+                            <div className="text-center py-6">
+                                <Button
+                                    onClick={loadDerivedAddresses}
+                                    size="lg"
+                                    className="bg-primary hover:bg-primary/90"
+                                >
+                                    Load Addresses
+                                </Button>
+                                <p className="text-sm text-muted-foreground mt-2">
+                                    Click to authenticate and load your wallet's derived addresses
+                                </p>
+                            </div>
+                        )}
+
+                        <div className="space-y-4">
+                            <div className="space-y-3">
+                                <Label htmlFor="addressCount"># of Addresses to Show</Label>
+                                <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
+                                    <div className="flex-1">
+                                        <Slider
+                                            id="addressCount"
+                                            min={1}
+                                            max={20}
+                                            step={1}
+                                            value={[addressCount]}
+                                            onValueChange={(value) => handleAddressCountChange(value[0])}
+                                            className="mt-2"
+                                        />
+                                        <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                                            <span>1</span>
+                                            <span className="font-medium text-primary">{addressCount}</span>
+                                            <span>20</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center justify-center sm:justify-start gap-2">
+                                        <Badge className="bg-amber-200 text-amber-900 dark:bg-amber-800 dark:text-amber-100">
+                                            ×{addressCount}
+                                        </Badge>
+                                        <Badge className="bg-indigo-200 text-indigo-900 dark:bg-indigo-800 dark:text-indigo-100">
+                                            ×{addressCount}
+                                        </Badge>
                                     </div>
                                 </div>
-                                <div className="flex items-center ml-3">
-                                    <Badge className="mr-2 bg-amber-200 text-amber-900 dark:bg-amber-800 dark:text-amber-100">
-                                        ×{addressCount}
-                                    </Badge>
-                                    <Badge className="bg-indigo-200 text-indigo-900 dark:bg-indigo-800 dark:text-indigo-100">
-                                        ×{addressCount}
-                                    </Badge>
-                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    Shows both receiving and change addresses
+                                </p>
                             </div>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                                Shows both receiving and change addresses
-                            </p>
-                        </div>
-                        <div className="mb-6">
-                            <Label htmlFor="coinType">Coin Type (BIP44)</Label>
-                            <Select
-                                value={coinType.toString()}
-                                onValueChange={(value) => setCoinType(parseInt(value))}
-                            >
-                                <SelectTrigger className="mt-1">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="921">921 - Avian (Standard)</SelectItem>
-                                    <SelectItem value="175">175 - Ravencoin (Legacy Compatibility)</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                                Use 175 only if this wallet was originally created with Ravencoin&apos;s coin type.
-                                Different coin types generate completely different addresses.
-                                {coinType === 175 && (
-                                    <span className="block mt-1 text-amber-600 dark:text-amber-400 font-medium">
-                                        ⚠️ Using Ravencoin compatibility mode
-                                    </span>
-                                )}
-                            </p>
-                        </div>
-                        {addresses.length > 0 && (
-                            <div className="mb-4">
-                                <Label htmlFor="searchTerm">Search Addresses</Label>
-                                <div className="relative mt-1">
-                                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
-                                    <Input
-                                        type="text"
-                                        id="searchTerm"
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="pl-9 pr-9"
-                                        placeholder="Search by address or path"
-                                        ref={searchInputRef}
-                                    />
-                                    {searchTerm && (
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => setSearchTerm('')}
-                                            className="absolute right-1 top-1 h-8 w-8 p-0"
-                                        >
-                                            <X className="h-4 w-4" />
-                                        </Button>
+
+                            <div className="space-y-3">
+                                <Label htmlFor="coinType">Coin Type (BIP44)</Label>
+                                <Select
+                                    value={coinType.toString()}
+                                    onValueChange={(value) => setCoinType(parseInt(value))}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="921">921 - Avian (Standard)</SelectItem>
+                                        <SelectItem value="175">175 - Ravencoin (Legacy Compatibility)</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <div className="text-xs text-muted-foreground space-y-1">
+                                    <p>
+                                        Use 175 only if this wallet was originally created with Ravencoin's coin type.
+                                        Different coin types generate completely different addresses.
+                                    </p>
+                                    {coinType === 175 && (
+                                        <p className="text-amber-600 dark:text-amber-400 font-medium">
+                                            ⚠️ Using Ravencoin compatibility mode
+                                        </p>
                                     )}
                                 </div>
                             </div>
-                        )}
-                        {addresses.length > 0 && (
-                            <div className="mb-4">
-                                <Tabs
-                                    value={activeTab}
-                                    onValueChange={(val: string) =>
-                                        setActiveTab(val as 'all' | 'receiving' | 'change' | 'with-balance')
-                                    }
-                                    className="w-full border-b border-gray-200 dark:border-gray-700"
-                                >
-                                    <TabsList className="flex h-auto bg-transparent p-0 w-full">
-                                        <TabsTrigger
-                                            value="all"
-                                            className={`flex-1 flex items-center justify-center ${isMobile ? 'px-2 py-3' : 'px-6 py-4'} data-[state=active]:border-b-1 data-[state=active]:border-avian-400 data-[state=active]:text-avian-400 data-[state=active]:after:h-0.5 data-[state=active]:after:bg-avian-400 data-[state=active]:after:absolute data-[state=active]:after:bottom-0 data-[state=active]:after:left-0 data-[state=active]:after:w-full bg-transparent rounded-none text-gray-500 dark:text-gray-400 h-auto relative`}
-                                        >
-                                            <Wallet className={`${isMobile ? 'w-3 h-3 mr-1' : 'w-4 h-4 mr-2'}`} />
-                                            <span className={isMobile ? 'text-xs' : ''}>
-                                                {isMobile ? 'All' : 'All Addresses'}
-                                            </span>
-                                        </TabsTrigger>
-                                        <TabsTrigger
-                                            value="receiving"
-                                            className={`flex-1 flex items-center justify-center ${isMobile ? 'px-2 py-3' : 'px-6 py-4'} data-[state=active]:border-b-1 data-[state=active]:border-avian-400 data-[state=active]:text-avian-400 data-[state=active]:after:h-0.5 data-[state=active]:after:bg-avian-400 data-[state=active]:after:absolute data-[state=active]:after:bottom-0 data-[state=active]:after:left-0 data-[state=active]:after:w-full bg-transparent rounded-none text-gray-500 dark:text-gray-400 h-auto relative`}
-                                        >
-                                            <ArrowDownLeft className={`${isMobile ? 'w-3 h-3 mr-1' : 'w-4 h-4 mr-2'}`} />
-                                            <span className={isMobile ? 'text-xs' : ''}>
-                                                {isMobile ? 'Receive' : 'Receiving'}
-                                            </span>
-                                        </TabsTrigger>
-                                        <TabsTrigger
-                                            value="change"
-                                            className={`flex-1 flex items-center justify-center ${isMobile ? 'px-2 py-3' : 'px-6 py-4'} data-[state=active]:border-b-1 data-[state=active]:border-avian-400 data-[state=active]:text-avian-400 data-[state=active]:after:h-0.5 data-[state=active]:after:bg-avian-400 data-[state=active]:after:absolute data-[state=active]:after:bottom-0 data-[state=active]:after:left-0 data-[state=active]:after:w-full bg-transparent rounded-none text-gray-500 dark:text-gray-400 h-auto relative`}
-                                        >
-                                            <ArrowUpRight className={`${isMobile ? 'w-3 h-3 mr-1' : 'w-4 h-4 mr-2'}`} />
-                                            <span className={isMobile ? 'text-xs' : ''}>Change</span>
-                                        </TabsTrigger>
-                                        <TabsTrigger
-                                            value="with-balance"
-                                            className={`flex-1 flex items-center justify-center ${isMobile ? 'px-2 py-3' : 'px-6 py-4'} data-[state=active]:border-b-1 data-[state=active]:border-avian-400 data-[state=active]:text-avian-400 data-[state=active]:after:h-0.5 data-[state=active]:after:bg-avian-400 data-[state=active]:after:absolute data-[state=active]:after:bottom-0 data-[state=active]:after:left-0 data-[state=active]:after:w-full bg-transparent rounded-none text-gray-500 dark:text-gray-400 h-auto relative`}
-                                        >
-                                            <Banknote className={`${isMobile ? 'w-3 h-3 mr-1' : 'w-4 h-4 mr-2'}`} />
-                                            <span className={isMobile ? 'text-xs' : ''}>
-                                                {isMobile ? 'Balance' : 'With Balance'}
-                                            </span>
-                                        </TabsTrigger>
-                                    </TabsList>
-                                </Tabs>
-                            </div>
-                        )}
-                        {addresses.length > 0 && (
-                            <div className="flex justify-end mb-4">
-                                <Button onClick={handleRefresh} disabled={isLoading} className="flex items-center">
-                                    <svg
-                                        className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`}
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeWidth="2"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                    >
-                                        <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
-                                    </svg>
-                                    {isLoading ? 'Loading...' : 'Refresh'}
-                                </Button>
-                            </div>
-                        )}{' '}
-                        {filteredAddresses.length > 0 && (
-                            <div className="p-3 mb-4 bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-md">
-                                <h3 className="text-sm font-medium mb-2 text-gray-700 dark:text-gray-200">
-                                    Legend
-                                </h3>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    {/* Row indicators - Enhanced contrast */}
-                                    <div className="space-y-2">
-                                        <div className="flex items-center">
-                                            <div className="w-5 h-5 bg-emerald-200 dark:bg-emerald-800/60 border border-emerald-300 dark:border-emerald-600 mr-3 rounded"></div>
-                                            <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">
-                                                Address with balance
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center">
-                                            <div className="w-5 h-5 bg-blue-200 dark:bg-blue-800/60 border border-blue-300 dark:border-blue-600 mr-3 rounded"></div>
-                                            <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">
-                                                Address with transaction history
-                                            </span>
-                                        </div>
+                            {addresses.length > 0 && (
+                                <div className="mb-4">
+                                    <Label htmlFor="searchTerm">Search Addresses</Label>
+                                    <div className="relative mt-1">
+                                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+                                        <Input
+                                            type="text"
+                                            id="searchTerm"
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                            className="pl-9 pr-9"
+                                            placeholder="Search by address or path"
+                                            ref={searchInputRef}
+                                        />
+                                        {searchTerm && (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => setSearchTerm('')}
+                                                className="absolute right-1 top-1 h-8 w-8 p-0"
+                                            >
+                                                <X className="h-4 w-4" />
+                                            </Button>
+                                        )}
                                     </div>
-
-                                    {/* Type indicators - Enhanced contrast */}
-                                    <div className="space-y-2">
-                                        <div className="flex items-center">
-                                            <div className="w-5 h-5 border-l-4 border-amber-500 dark:border-amber-400 bg-amber-100/50 dark:bg-amber-900/30 mr-3 rounded"></div>
-                                            <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">
-                                                Receiving address (m/44&apos;/{coinType}&apos;/0&apos;/0/x)
-                                            </span>
+                                </div>
+                            )}
+                            {addresses.length > 0 && (
+                                <div className="mb-4">
+                                    <Tabs
+                                        value={activeTab}
+                                        onValueChange={(val: string) =>
+                                            setActiveTab(val as 'all' | 'receiving' | 'change' | 'with-balance')
+                                        }
+                                        className="w-full border-b border-gray-200 dark:border-gray-700"
+                                    >
+                                        <TabsList className="flex h-auto bg-transparent p-0 w-full">
+                                            <TabsTrigger
+                                                value="all"
+                                                className={`flex-1 flex items-center justify-center ${isMobile ? 'px-2 py-3' : 'px-6 py-4'} data-[state=active]:border-b-1 data-[state=active]:border-avian-400 data-[state=active]:text-avian-400 data-[state=active]:after:h-0.5 data-[state=active]:after:bg-avian-400 data-[state=active]:after:absolute data-[state=active]:after:bottom-0 data-[state=active]:after:left-0 data-[state=active]:after:w-full bg-transparent rounded-none text-gray-500 dark:text-gray-400 h-auto relative`}
+                                            >
+                                                <Wallet className={`${isMobile ? 'w-3 h-3 mr-1' : 'w-4 h-4 mr-2'}`} />
+                                                <span className={isMobile ? 'text-xs' : ''}>
+                                                    {isMobile ? 'All' : 'All Addresses'}
+                                                </span>
+                                            </TabsTrigger>
+                                            <TabsTrigger
+                                                value="receiving"
+                                                className={`flex-1 flex items-center justify-center ${isMobile ? 'px-2 py-3' : 'px-6 py-4'} data-[state=active]:border-b-1 data-[state=active]:border-avian-400 data-[state=active]:text-avian-400 data-[state=active]:after:h-0.5 data-[state=active]:after:bg-avian-400 data-[state=active]:after:absolute data-[state=active]:after:bottom-0 data-[state=active]:after:left-0 data-[state=active]:after:w-full bg-transparent rounded-none text-gray-500 dark:text-gray-400 h-auto relative`}
+                                            >
+                                                <ArrowDownLeft className={`${isMobile ? 'w-3 h-3 mr-1' : 'w-4 h-4 mr-2'}`} />
+                                                <span className={isMobile ? 'text-xs' : ''}>
+                                                    {isMobile ? 'Receive' : 'Receiving'}
+                                                </span>
+                                            </TabsTrigger>
+                                            <TabsTrigger
+                                                value="change"
+                                                className={`flex-1 flex items-center justify-center ${isMobile ? 'px-2 py-3' : 'px-6 py-4'} data-[state=active]:border-b-1 data-[state=active]:border-avian-400 data-[state=active]:text-avian-400 data-[state=active]:after:h-0.5 data-[state=active]:after:bg-avian-400 data-[state=active]:after:absolute data-[state=active]:after:bottom-0 data-[state=active]:after:left-0 data-[state=active]:after:w-full bg-transparent rounded-none text-gray-500 dark:text-gray-400 h-auto relative`}
+                                            >
+                                                <ArrowUpRight className={`${isMobile ? 'w-3 h-3 mr-1' : 'w-4 h-4 mr-2'}`} />
+                                                <span className={isMobile ? 'text-xs' : ''}>Change</span>
+                                            </TabsTrigger>
+                                            <TabsTrigger
+                                                value="with-balance"
+                                                className={`flex-1 flex items-center justify-center ${isMobile ? 'px-2 py-3' : 'px-6 py-4'} data-[state=active]:border-b-1 data-[state=active]:border-avian-400 data-[state=active]:text-avian-400 data-[state=active]:after:h-0.5 data-[state=active]:after:bg-avian-400 data-[state=active]:after:absolute data-[state=active]:after:bottom-0 data-[state=active]:after:left-0 data-[state=active]:after:w-full bg-transparent rounded-none text-gray-500 dark:text-gray-400 h-auto relative`}
+                                            >
+                                                <Banknote className={`${isMobile ? 'w-3 h-3 mr-1' : 'w-4 h-4 mr-2'}`} />
+                                                <span className={isMobile ? 'text-xs' : ''}>
+                                                    {isMobile ? 'Balance' : 'With Balance'}
+                                                </span>
+                                            </TabsTrigger>
+                                        </TabsList>
+                                    </Tabs>
+                                </div>
+                            )}
+                            {addresses.length > 0 && (
+                                <div className="flex justify-end mb-4">
+                                    <Button onClick={handleRefresh} disabled={isLoading} className="flex items-center">
+                                        <svg
+                                            className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`}
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="2"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                        >
+                                            <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
+                                        </svg>
+                                        {isLoading ? 'Loading...' : 'Refresh'}
+                                    </Button>
+                                </div>
+                            )}{' '}
+                            {filteredAddresses.length > 0 && (
+                                <div className="p-3 mb-4 bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-md">
+                                    <h3 className="text-sm font-medium mb-2 text-gray-700 dark:text-gray-200">
+                                        Legend
+                                    </h3>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        {/* Row indicators - Enhanced contrast */}
+                                        <div className="space-y-2">
+                                            <div className="flex items-center">
+                                                <div className="w-5 h-5 bg-emerald-200 dark:bg-emerald-800/60 border border-emerald-300 dark:border-emerald-600 mr-3 rounded"></div>
+                                                <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">
+                                                    Address with balance
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center">
+                                                <div className="w-5 h-5 bg-blue-200 dark:bg-blue-800/60 border border-blue-300 dark:border-blue-600 mr-3 rounded"></div>
+                                                <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">
+                                                    Address with transaction history
+                                                </span>
+                                            </div>
                                         </div>
-                                        <div className="flex items-center">
-                                            <div className="w-5 h-5 border-l-4 border-indigo-500 dark:border-indigo-400 bg-indigo-100/50 dark:bg-indigo-900/30 mr-3 rounded"></div>
-                                            <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">
-                                                Change address (m/44&apos;/{coinType}&apos;/0&apos;/1/x)
-                                            </span>
+
+                                        {/* Type indicators - Enhanced contrast */}
+                                        <div className="space-y-2">
+                                            <div className="flex items-center">
+                                                <div className="w-5 h-5 border-l-4 border-amber-500 dark:border-amber-400 bg-amber-100/50 dark:bg-amber-900/30 mr-3 rounded"></div>
+                                                <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">
+                                                    Receiving address (m/44&apos;/{coinType}&apos;/0&apos;/0/x)
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center">
+                                                <div className="w-5 h-5 border-l-4 border-indigo-500 dark:border-indigo-400 bg-indigo-100/50 dark:bg-indigo-900/30 mr-3 rounded"></div>
+                                                <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">
+                                                    Change address (m/44&apos;/{coinType}&apos;/0&apos;/1/x)
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        )}
+                            )}
+                        </div>
                     </div>
                 )}
 
                 {filteredAddresses.length > 0 ? (
                     <div className="mt-2 sm:overflow-visible overflow-x-auto">
+                        {/* Mobile hint */}
+                        {isMobile && (
+                            <div className="mb-3 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md sm:hidden">
+                                <p className="text-xs text-blue-700 dark:text-blue-300 flex items-center">
+                                    <svg className="w-3 h-3 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                                    </svg>
+                                    Tap any row to view address details and actions
+                                </p>
+                            </div>
+                        )}
                         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-600">
                             <thead className="bg-gray-50 dark:bg-gray-700 dark:bg-opacity-80">
                                 <tr>
                                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-200 uppercase tracking-wider w-1/4">
                                         Details
                                     </th>
-                                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-200 uppercase tracking-wider">
+                                    {/* Address column - hidden on mobile */}
+                                    <th className="hidden sm:table-cell px-3 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-200 uppercase tracking-wider">
                                         Address
                                     </th>
                                     <th className="px-3 py-3 text-center text-xs font-medium text-gray-600 dark:text-gray-200 uppercase tracking-wider w-[120px]">
                                         Balance
                                     </th>
-                                    <th className="px-3 py-3 text-center text-xs font-medium text-gray-600 dark:text-gray-200 uppercase tracking-wider w-[140px]">
+                                    {/* Actions column - hidden on mobile */}
+                                    <th className="hidden sm:table-cell px-3 py-3 text-center text-xs font-medium text-gray-600 dark:text-gray-200 uppercase tracking-wider w-[140px]">
                                         Actions
                                     </th>
                                 </tr>
@@ -985,8 +1020,9 @@ export default function DerivedAddressesPanel() {
                             <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
                                 {filteredAddresses.map((item, index) => {
                                     // Build comprehensive class string
-                                    const baseClasses =
-                                        'transition-colors bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700';
+                                    const baseClasses = isMobile
+                                        ? 'transition-colors bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer'
+                                        : 'transition-colors bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700';
 
                                     // Background color classes based on balance/transaction status
                                     const backgroundClasses =
@@ -1011,6 +1047,7 @@ export default function DerivedAddressesPanel() {
                                         <tr
                                             key={index}
                                             className={rowClasses}
+                                            onClick={isMobile ? () => openAddressDetails(item) : undefined}
                                             style={{
                                                 borderLeftWidth:
                                                     item.path.includes('(receiving)') || item.path.includes('(change)')
@@ -1051,7 +1088,8 @@ export default function DerivedAddressesPanel() {
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="px-3 py-2 text-sm font-mono text-gray-700 dark:text-gray-300">
+                                            {/* Address column - hidden on mobile */}
+                                            <td className="hidden sm:table-cell px-3 py-2 text-sm font-mono text-gray-700 dark:text-gray-300">
                                                 <div className="flex items-center" title={item.address}>
                                                     <div className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded w-full max-w-full">
                                                         <span className="hidden sm:inline font-medium tracking-wide break-all">
@@ -1082,8 +1120,9 @@ export default function DerivedAddressesPanel() {
                                                         0 AVN
                                                     </Badge>
                                                 )}
-                                            </td>{' '}
-                                            <td className="px-3 py-2 text-center">
+                                            </td>
+                                            {/* Actions column - hidden on mobile */}
+                                            <td className="hidden sm:table-cell px-3 py-2 text-center">
                                                 <div className="flex justify-center space-x-3">
                                                     <Button
                                                         onClick={() => openAddressDetails(item)}
@@ -1190,7 +1229,7 @@ export default function DerivedAddressesPanel() {
                     )
                 )}
 
-                {/* Address Details Dialog (mobile view) */}
+                {/* Address Details Dialog */}
                 <AddressDetailsDialog
                     isOpen={isAddressDetailsOpen}
                     onClose={closeAddressDetails}
@@ -1198,6 +1237,7 @@ export default function DerivedAddressesPanel() {
                     onCopy={handleCopyToClipboard}
                     coinType={coinType}
                 />
+
             </CardContent>
         </Card>
     );

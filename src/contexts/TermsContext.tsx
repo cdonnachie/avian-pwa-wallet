@@ -71,7 +71,7 @@ export function TermsProvider({ children }: TermsProviderProps) {
       <div className="fixed inset-0 bg-gray-900 flex items-center justify-center">
         <div className="flex flex-col items-center justify-center">
           <div>
-            <Image src="/avian_spinner.gif" alt="Loading..." width={128} height={128} />
+            <Image src="/avian_spinner.png" alt="Loading..." width={128} height={128} unoptimized />
           </div>
           <p className="text-primary dark:text-white mt-2">Loading Avian FlightDeck...</p>
         </div>

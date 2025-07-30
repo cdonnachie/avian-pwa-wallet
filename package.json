@@ -1,6 +1,6 @@
 {
   "name": "avian-flightdeck",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "Advanced Avian cryptocurrency wallet with HD wallet support, UTXO coin control, biometric authentication, and comprehensive backup features as a Progressive Web App",
   "scripts": {
     "dev": "next dev",
@@ -33,6 +33,7 @@
     "@radix-ui/react-switch": "^1.2.5",
     "@radix-ui/react-tabs": "^1.1.12",
     "@radix-ui/react-tooltip": "^1.2.7",
+    "@tanstack/react-table": "^8.21.3",
     "@types/crypto-js": "^4.2.2",
     "@types/node": "^20",
     "@types/qrcode": "^1.5.5",
