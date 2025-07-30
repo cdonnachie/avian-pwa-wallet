@@ -304,7 +304,7 @@ export function SecurityProvider({ children }: SecurityProviderProps) {
         <div className="fixed inset-0 flex h-full w-full items-center justify-center z-50">
           <div className="flex flex-col items-center justify-center text-center space-y-4">
             <div className="flex items-center justify-center">
-              <Image src="/avian_spinner.gif" alt="Loading..." width={96} height={96} />
+              <Image src="/avian_spinner.png" alt="Loading..." width={96} height={96} unoptimized />
             </div>
             <p className="text-sm text-muted-foreground animate-pulse">Loading wallet...</p>
           </div>

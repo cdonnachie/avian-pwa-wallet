@@ -300,27 +300,29 @@ export default function WatchAddressesPanel() {
 
   return (
     <Card className="border-0 shadow-none">
-      <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-2 sm:space-y-0 pb-2 px-0 sm:px-6">
-        <CardTitle className="text-xl font-bold">Add a Watch Address</CardTitle>
-        {watchedAddresses.length > 0 && (
-          <Button
-            onClick={refreshBalances}
-            disabled={isLoading}
-            variant="outline"
-            size="sm"
-            className="h-8"
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh Balances
-          </Button>
-        )}
+      <CardHeader className="flex flex-col space-y-3 pb-4 px-4 sm:px-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-2 sm:space-y-0">
+          <CardTitle className="text-lg sm:text-xl font-bold">Add a Watch Address</CardTitle>
+          {watchedAddresses.length > 0 && (
+            <Button
+              onClick={refreshBalances}
+              disabled={isLoading}
+              variant="outline"
+              size="sm"
+              className="h-8 w-full sm:w-auto"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh Balances
+            </Button>
+          )}
+        </div>
       </CardHeader>
 
-      <CardContent className="space-y-4 px-0 sm:px-6">
+      <CardContent className="space-y-4 px-4 sm:px-6">
         {/* Notification Threshold Setting */}
         <Card className="mb-4 bg-muted/30">
-          <CardContent className="p-4 space-y-3">
-            <div className="flex justify-between items-center">
+          <CardContent className="p-3 sm:p-4 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-2 sm:space-y-0">
               <div className="flex items-center">
                 <BellRing className="h-4 w-4 mr-2 text-primary" />
                 <h3 className="text-sm font-medium">Notification Threshold</h3>
@@ -328,7 +330,7 @@ export default function WatchAddressesPanel() {
               <Button
                 variant="outline"
                 size="sm"
-                className="h-7 text-xs"
+                className="h-7 text-xs w-full sm:w-auto"
                 onClick={saveNotificationThreshold}
                 disabled={isThresholdLoading}
               >
@@ -369,7 +371,7 @@ export default function WatchAddressesPanel() {
 
               <div className="flex justify-between items-center text-xs text-muted-foreground">
                 <span>0.01 AVN</span>
-                <span className="font-medium text-foreground">
+                <span className="font-medium text-foreground text-sm">
                   {notificationThreshold < 0.1
                     ? notificationThreshold.toFixed(2)
                     : notificationThreshold < 100
@@ -380,7 +382,7 @@ export default function WatchAddressesPanel() {
                 <span>100,000 AVN</span>
               </div>
 
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground text-center sm:text-left">
                 You&apos;ll be notified when a watched address balance changes by at least{' '}
                 {notificationThreshold < 0.1
                   ? notificationThreshold.toFixed(2)
@@ -425,78 +427,85 @@ export default function WatchAddressesPanel() {
             />
           </div>
 
-          <Button type="submit" disabled={isLoading || !newAddress.trim()} className="w-full">
+          <Button type="submit" disabled={isLoading || !newAddress.trim()} className="w-full h-10">
             {isLoading ? 'Adding...' : 'Add Address'}
           </Button>
         </form>
 
-        <Separator />
+        <Separator className="my-6" />
 
         {/* Watched Addresses List */}
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="font-medium text-lg">Your Watched Addresses</h3>
           </div>
 
           {watchedAddresses.length === 0 ? (
-            <p className="text-muted-foreground text-center py-4">
-              No addresses being watched yet.
-            </p>
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">
+                No addresses being watched yet.
+              </p>
+            </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {watchedAddresses.map((item) => (
                 <Card key={item.watch_address} className="overflow-hidden">
-                  <CardContent className="p-4 space-y-2">
-                    <div className="flex flex-col sm:flex-row justify-between items-start gap-3">
-                      <div className="w-full">
-                        <div className="flex items-center flex-wrap gap-2 mb-1">
-                          <h4 className="font-medium">{item.label}</h4>
-                          <Badge variant="default" className="px-2 py-0">
-                            <Eye className="h-3 w-3 mr-1" />
-                            Watching
-                          </Badge>
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex flex-col space-y-3">
+                      <div className="flex flex-col sm:flex-row justify-between items-start gap-3">
+                        <div className="w-full space-y-2">
+                          <div className="flex items-center flex-wrap gap-2">
+                            <h4 className="font-medium text-base">{item.label}</h4>
+                            <Badge variant="default" className="px-2 py-1">
+                              <Eye className="h-3 w-3 mr-1" />
+                              Watching
+                            </Badge>
+                          </div>
+
+                          <div className="flex items-center gap-2 w-full">
+                            <code className="text-xs font-mono truncate flex-1 text-muted-foreground bg-muted px-2 py-1 rounded">
+                              {item.watch_address}
+                            </code>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                navigator.clipboard.writeText(item.watch_address);
+                                toast.success('Copied', {
+                                  description: 'Address copied to clipboard',
+                                });
+                              }}
+                              className="h-8 w-8 flex-shrink-0"
+                            >
+                              <Clipboard className="h-4 w-4" />
+                            </Button>
+                          </div>
+
+                          <div className="bg-muted/50 p-2 rounded">
+                            <p className="text-sm font-medium">
+                              Balance:{' '}
+                              <span className="font-bold text-primary">{item.balance?.toFixed(8) || '0'} AVN</span>
+                            </p>
+                          </div>
                         </div>
-                        <div className="flex items-center mt-1 w-full">
-                          <code className="text-xs font-mono truncate w-full max-w-full sm:max-w-[200px] text-muted-foreground mr-2">
-                            {item.watch_address}
-                          </code>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              navigator.clipboard.writeText(item.watch_address);
-                              toast.success('Copied', {
-                                description: 'Address copied to clipboard',
-                              });
-                            }}
-                            className="h-6 w-6 flex-shrink-0"
-                          >
-                            <Clipboard className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <p className="text-sm font-medium mt-2">
-                          Balance:{' '}
-                          <span className="font-bold">{item.balance?.toFixed(8) || '0'} AVN</span>
-                        </p>
+
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => removeWatchAddress(item.watch_address)}
+                          disabled={isLoading}
+                          className="w-full sm:w-auto"
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Remove
+                        </Button>
                       </div>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => removeWatchAddress(item.watch_address)}
-                        disabled={isLoading}
-                        className="w-full sm:w-auto"
-                      >
-                        <Trash2 className="h-4 w-4 mr-1" />
-                        Remove
-                      </Button>
-                    </div>
 
-                    <Separator className="my-2" />
+                      <Separator />
 
-                    {/* Notification Options */}
-                    <div className="text-sm">
-                      <p className="mb-2 text-muted-foreground">Notifications:</p>
-                      <div className="grid grid-cols-1 gap-3">
+                      {/* Notification Options */}
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-muted-foreground">Notifications:</p>
                         <div className="flex items-center space-x-2">
                           <Checkbox
                             id={`balance-${item.watch_address}`}

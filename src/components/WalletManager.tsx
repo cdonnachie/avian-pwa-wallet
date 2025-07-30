@@ -598,7 +598,7 @@ export function WalletManager({ onWalletSelect, onClose }: WalletManagerProps) {
       <Card className="w-full">
         <CardContent className="flex items-center justify-center p-8">
           <div>
-            <Image src="/avian_spinner.gif" alt="Loading..." width={48} height={48} />
+            <Image src="/avian_spinner.png" alt="Loading..." width={48} height={48} unoptimized />
           </div>
           <span className="ml-2 text-muted-foreground">Loading wallets...</span>
         </CardContent>
