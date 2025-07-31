@@ -15,6 +15,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AppLayout } from '@/components/AppLayout';
 import { HeaderActions } from '@/components/HeaderActions';
+import RouteGuard from '@/components/RouteGuard';
 
 interface SettingsCategory {
     id: string;
@@ -84,49 +85,51 @@ export default function SettingsPage() {
     };
 
     return (
-        <AppLayout
-            headerProps={{
-                actions: <HeaderActions />
-            }}
-        >
-            <div className="space-y-6">
-                <div>
-                    <h2 className="text-lg font-semibold mb-2">Configure Your Wallet</h2>
-                    <p className="text-muted-foreground">
-                        Manage your wallet settings, security, and preferences
-                    </p>
-                </div>
+        <RouteGuard requireTerms={true}>
+            <AppLayout
+                headerProps={{
+                    actions: <HeaderActions />
+                }}
+            >
+                <div className="space-y-6">
+                    <div>
+                        <h2 className="text-lg font-semibold mb-2">Configure Your Wallet</h2>
+                        <p className="text-muted-foreground">
+                            Manage your wallet settings, security, and preferences
+                        </p>
+                    </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
-                    {settingsCategories.map((category) => {
-                        const IconComponent = category.icon;
-                        return (
-                            <Card
-                                key={category.id}
-                                className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-[1.02]"
-                                onClick={() => handleCategoryClick(category.path)}
-                            >
-                                <CardHeader className="pb-4">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-12 h-12 rounded-lg bg-muted flex items-center justify-center`}>
-                                                <IconComponent className={`w-6 h-6 ${category.color}`} />
+                    <div className="grid gap-4 md:grid-cols-2">
+                        {settingsCategories.map((category) => {
+                            const IconComponent = category.icon;
+                            return (
+                                <Card
+                                    key={category.id}
+                                    className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-[1.02]"
+                                    onClick={() => handleCategoryClick(category.path)}
+                                >
+                                    <CardHeader className="pb-4">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-12 h-12 rounded-lg bg-muted flex items-center justify-center`}>
+                                                    <IconComponent className={`w-6 h-6 ${category.color}`} />
+                                                </div>
+                                                <div>
+                                                    <CardTitle className="text-lg">{category.title}</CardTitle>
+                                                    <p className="text-sm text-muted-foreground mt-1">
+                                                        {category.description}
+                                                    </p>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <CardTitle className="text-lg">{category.title}</CardTitle>
-                                                <p className="text-sm text-muted-foreground mt-1">
-                                                    {category.description}
-                                                </p>
-                                            </div>
+                                            <ChevronRight className="w-5 h-5 text-muted-foreground" />
                                         </div>
-                                        <ChevronRight className="w-5 h-5 text-muted-foreground" />
-                                    </div>
-                                </CardHeader>
-                            </Card>
-                        );
-                    })}
+                                    </CardHeader>
+                                </Card>
+                            );
+                        })}
+                    </div>
                 </div>
-            </div>
-        </AppLayout>
+            </AppLayout>
+        </RouteGuard>
     );
 }

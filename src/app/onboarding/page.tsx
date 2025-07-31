@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWallet } from '@/contexts/WalletContext';
-import { Wallet, Import, FileKey, ArrowLeft, Upload, QrCode, AlertTriangle, ArrowRight } from 'lucide-react';
+import { Wallet, Import, FileKey, ArrowLeft, Upload, QrCode, AlertTriangle, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { StorageService } from '@/services/core/StorageService';
 import WalletCreationForm, {
     WalletCreationMode,
@@ -31,6 +31,7 @@ export default function OnboardingPage() {
     const [showBackupQRModal, setShowBackupQRModal] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [backupPassword, setBackupPassword] = useState('');
+    const [showBackupPassword, setShowBackupPassword] = useState(false);
     const [needsPassword, setNeedsPassword] = useState(false);
 
     // Check if wallet exists and redirect if so
@@ -339,13 +340,29 @@ export default function OnboardingPage() {
                         {needsPassword && (
                             <div className="mt-4 space-y-3">
                                 <Label htmlFor="backupPassword">Backup Password</Label>
-                                <Input
-                                    id="backupPassword"
-                                    type="password"
-                                    value={backupPassword}
-                                    onChange={(e) => setBackupPassword(e.target.value)}
-                                    placeholder="Enter backup password"
-                                />
+                                <div className="relative">
+                                    <Input
+                                        id="backupPassword"
+                                        type={showBackupPassword ? "text" : "password"}
+                                        value={backupPassword}
+                                        onChange={(e) => setBackupPassword(e.target.value)}
+                                        placeholder="Enter backup password"
+                                        className="pr-10"
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                                        onClick={() => setShowBackupPassword(!showBackupPassword)}
+                                    >
+                                        {showBackupPassword ? (
+                                            <EyeOff className="h-4 w-4 text-gray-500" />
+                                        ) : (
+                                            <Eye className="h-4 w-4 text-gray-500" />
+                                        )}
+                                    </Button>
+                                </div>
                                 <Button
                                     onClick={handlePasswordRestore}
                                     disabled={!backupPassword || isSubmitting}

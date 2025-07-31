@@ -2,6 +2,29 @@
 
 This document tracks recent enhancements to the Avian FlightDeck Wallet application.
 
+## Latest Features (July 2025)
+
+### Enhanced User Experience
+
+- **Wallet Name Editing**: Users can now edit wallet names directly in the wallet manager
+  - Inline editing with hover-to-reveal edit button
+  - Real-time updates across all components (sidebar, wallet list)
+  - Event-driven synchronization between components
+  - Keyboard shortcuts (Enter to save, Escape to cancel)
+
+- **Password Visibility Toggles**: Added eye icons to all password fields throughout the application
+  - Comprehensive implementation across backup, import, creation, and authentication forms
+  - Consistent UX pattern that maintains visibility state during form interaction
+  - Follows industry best practices for password field usability
+
+- **Advanced UTXO Management**: Upgraded UTXO overview with professional data table features
+  - @tanstack/react-table integration for powerful table functionality
+  - Sortable columns with visual sort indicators
+  - Pagination with configurable page sizes (10, 20, 30, 40, 50 rows)
+  - Search and filtering capabilities
+  - Mobile-responsive design with drawer interface
+  - Performance optimized for handling large numbers of UTXOs
+
 ## Advanced Wallet Features
 
 ### BIP39 Enhanced Security

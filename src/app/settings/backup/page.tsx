@@ -8,6 +8,7 @@ import { AppLayout } from '@/components/AppLayout';
 import { HeaderActions } from '@/components/HeaderActions';
 import { BackupExport } from '@/components/BackupExport';
 import { BackupRestore } from '@/components/BackupRestore';
+import RouteGuard from '@/components/RouteGuard';
 
 type ViewType = 'overview' | 'export' | 'restore';
 
@@ -98,24 +99,26 @@ export default function BackupSettingsPage() {
     };
 
     return (
-        <AppLayout
-            headerProps={{
-                title: getPageTitle(),
-                showBackButton: true,
-                customBackAction: handleBack,
-                actions: <HeaderActions />
-            }}
-        >
-            <div className="space-y-6 max-w-screen-2xl">
-                <div>
-                    <h2 className="text-lg font-semibold mb-2">Protect Your Wallet</h2>
-                    <p className="text-muted-foreground">
-                        Create backups to keep your wallet safe and accessible
-                    </p>
-                </div>
+        <RouteGuard requireTerms={true} requireWallet={true}>
+            <AppLayout
+                headerProps={{
+                    title: getPageTitle(),
+                    showBackButton: true,
+                    customBackAction: handleBack,
+                    actions: <HeaderActions />
+                }}
+            >
+                <div className="space-y-6 max-w-screen-2xl">
+                    <div>
+                        <h2 className="text-lg font-semibold mb-2">Protect Your Wallet</h2>
+                        <p className="text-muted-foreground">
+                            Create backups to keep your wallet safe and accessible
+                        </p>
+                    </div>
 
-                {renderContent()}
-            </div>
-        </AppLayout>
+                    {renderContent()}
+                </div>
+            </AppLayout>
+        </RouteGuard>
     );
 }

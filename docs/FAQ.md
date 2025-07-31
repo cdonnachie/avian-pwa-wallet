@@ -80,6 +80,38 @@ Yes! Avian FlightDeck Wallet supports multiple wallets. You can:
 - Import existing wallets from mnemonic or private key
 - Switch between wallets easily
 - Manage each wallet independently
+- **Edit wallet names**: Click the edit icon next to any wallet name to rename it
+
+### How do I rename a wallet?
+
+1. Go to Wallet Settings → My Wallets
+2. Hover over any wallet name to see the edit icon (pencil)
+3. Click the edit icon to enable inline editing
+4. Type the new name and press Enter (or click the checkmark)
+5. Press Escape to cancel editing
+6. The new name will appear immediately in both the wallet list and sidebar
+
+### Can I view detailed transaction information?
+
+Yes! The wallet provides comprehensive UTXO (Unspent Transaction Output) management:
+
+1. **UTXO Overview**: View all your unspent transaction outputs in a paginated table
+2. **Sortable Columns**: Sort by transaction ID, amount, confirmations, or status
+3. **Search & Filter**: Find specific transactions using the search bar
+4. **Pagination**: Navigate through large numbers of UTXOs efficiently
+5. **Detailed Information**: See transaction IDs, addresses, amounts, and confirmation status
+6. **Dust Detection**: Automatically identifies and highlights dust UTXOs
+
+### What are UTXOs and why should I care?
+
+UTXOs (Unspent Transaction Outputs) are the "coins" in your wallet. Understanding them helps with:
+
+- **Fee Optimization**: Larger UTXOs mean lower transaction fees
+- **Privacy**: Knowing which addresses have been used
+- **Transaction Planning**: Understanding your spendable amounts
+- **Dust Management**: Identifying small amounts that cost more to spend than they're worth
+- Switch between wallets easily
+- Manage each wallet independently
 
 ### How do I backup my wallet?
 

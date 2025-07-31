@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { QrCode, Camera, ArrowLeft, ArrowRight, X, AlertCircle, ChevronLeft } from 'lucide-react';
+import { QrCode, Camera, ArrowLeft, ArrowRight, X, AlertCircle, ChevronLeft, Download, Eye, EyeOff } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import jsQR from 'jsqr';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { BackupService } from '@/services/core/BackupService';
 import { Logger } from '@/lib/Logger';
+import RouteGuard from '@/components/RouteGuard';
 
 // Import Shadcn UI components
 import { Button } from '@/components/ui/button';
@@ -29,6 +30,8 @@ export default function BackupQRPage() {
     const [activeTab, setActiveTab] = useState<'backup' | 'restore'>('backup');
     const [backupPassword, setBackupPassword] = useState('');
     const [restorePassword, setRestorePassword] = useState('');
+    const [showBackupPassword, setShowBackupPassword] = useState(false);
+    const [showRestorePassword, setShowRestorePassword] = useState(false);
     const [backupChunks, setBackupChunks] = useState<string[]>([]);
     const [currentChunkIndex, setCurrentChunkIndex] = useState(0);
     const [isGenerating, setIsGenerating] = useState(false);
@@ -93,6 +96,105 @@ export default function BackupQRPage() {
         } finally {
             setIsGenerating(false);
         }
+    };
+
+    // Download all QR codes as images
+    const downloadAllQRCodes = async () => {
+        try {
+            if (backupChunks.length === 0) {
+                toast.error('No QR codes to download');
+                return;
+            }
+
+            const qrSize = 512; // High resolution for downloads
+            const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
+
+            // If there's only one QR code, download it directly
+            if (backupChunks.length === 1) {
+                await downloadSingleQRCode(backupChunks[0], `avian-wallet-backup-${timestamp}.png`);
+                toast.success('QR code downloaded successfully');
+                return;
+            }
+
+            // For multiple QR codes, download them individually with a delay
+            toast.info(`Downloading ${backupChunks.length} QR codes...`, {
+                description: 'Files will download one by one'
+            });
+
+            for (let i = 0; i < backupChunks.length; i++) {
+                const filename = `avian-wallet-backup-${timestamp}-${String(i + 1).padStart(2, '0')}-of-${String(backupChunks.length).padStart(2, '0')}.png`;
+                await downloadSingleQRCode(backupChunks[i], filename);
+
+                // Add a small delay between downloads to prevent browser blocking
+                if (i < backupChunks.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+            }
+
+            toast.success(`Downloaded ${backupChunks.length} QR codes successfully`, {
+                description: 'You can now print or share these QR codes safely'
+            });
+
+        } catch (error) {
+            console.error('Download error:', error);
+            toast.error('Failed to download QR codes', {
+                description: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    };
+
+    // Helper function to download a single QR code
+    const downloadSingleQRCode = async (qrData: string, filename: string): Promise<void> => {
+        return new Promise((resolve, reject) => {
+            try {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    reject(new Error('Canvas context not available'));
+                    return;
+                }
+
+                const qrSize = 512;
+                canvas.width = qrSize;
+                canvas.height = qrSize;
+
+                // Use the qrcode library for reliable QR code generation
+                import('qrcode').then((QRCode) => {
+                    QRCode.toCanvas(canvas, qrData, {
+                        width: qrSize,
+                        margin: 4,
+                        color: {
+                            dark: '#000000',
+                            light: '#FFFFFF'
+                        },
+                        errorCorrectionLevel: 'L'
+                    }, (error) => {
+                        if (error) {
+                            reject(error);
+                            return;
+                        }
+
+                        canvas.toBlob((blob) => {
+                            if (blob) {
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = filename;
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                                URL.revokeObjectURL(url);
+                                resolve();
+                            } else {
+                                reject(new Error('Failed to create blob'));
+                            }
+                        }, 'image/png');
+                    });
+                }).catch(reject);
+            } catch (error) {
+                reject(error);
+            }
+        });
     };
 
     // Handle camera scanning for restore
@@ -485,361 +587,424 @@ export default function BackupQRPage() {
     };
 
     return (
-        <AppLayout
-            headerProps={{
-                title: 'QR Code Backup & Restore',
-                showBackButton: true,
-                customBackAction: handleBack,
-                actions: <HeaderActions />
-            }}
-        >
-            <div className="space-y-6 max-w-screen-2xl">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Transfer Wallet with QR Codes</CardTitle>
-                        <p className="text-muted-foreground">
-                            Generate QR codes to backup your wallet or scan QR codes to restore from another device
-                        </p>
-                    </CardHeader>
-                    <CardContent>
-                        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'backup' | 'restore')}>
-                            <TabsList className="grid w-full grid-cols-2">
-                                <TabsTrigger value="backup">Generate Backup</TabsTrigger>
-                                <TabsTrigger value="restore">Restore from QR</TabsTrigger>
-                            </TabsList>
+        <RouteGuard requireTerms={true} requireWallet={true}>
+            <AppLayout
+                headerProps={{
+                    title: 'QR Code Backup & Restore',
+                    showBackButton: true,
+                    customBackAction: handleBack,
+                    actions: <HeaderActions />
+                }}
+            >
+                <div className="space-y-6 max-w-screen-2xl">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Transfer Wallet with QR Codes</CardTitle>
+                            <p className="text-muted-foreground">
+                                Generate QR codes to backup your wallet or scan QR codes to restore from another device
+                            </p>
+                        </CardHeader>
+                        <CardContent>
+                            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'backup' | 'restore')}>
+                                <TabsList className="grid w-full grid-cols-2">
+                                    <TabsTrigger value="backup">Generate Backup</TabsTrigger>
+                                    <TabsTrigger value="restore">Restore from QR</TabsTrigger>
+                                </TabsList>
 
-                            {/* Backup Tab */}
-                            <TabsContent value="backup" className="space-y-6 mt-6">
-                                {backupChunks.length > 0 ? (
-                                    <div className="space-y-6">
-                                        <div className="flex flex-col items-center">
-                                            <div className="bg-white p-6 rounded-lg shadow-sm border">
-                                                <QRCodeSVG
-                                                    value={backupChunks[currentChunkIndex]}
-                                                    size={isMobile ? 280 : 320}
-                                                    level="L"
-                                                    includeMargin
-                                                    bgColor="#FFFFFF"
-                                                    fgColor="#000000"
-                                                />
-                                            </div>
+                                {/* Backup Tab */}
+                                <TabsContent value="backup" className="space-y-6 mt-6">
+                                    {backupChunks.length > 0 ? (
+                                        <div className="space-y-6">
+                                            <div className="flex flex-col items-center">
+                                                <div className="bg-white p-6 rounded-lg shadow-sm border">
+                                                    <QRCodeSVG
+                                                        value={backupChunks[currentChunkIndex]}
+                                                        size={isMobile ? 280 : 320}
+                                                        level="L"
+                                                        includeMargin
+                                                        bgColor="#FFFFFF"
+                                                        fgColor="#000000"
+                                                    />
+                                                </div>
 
-                                            {backupChunks.length > 1 && (
-                                                <div className="mt-6 text-center space-y-4 w-full max-w-md">
-                                                    <div>
-                                                        <p className="text-lg font-medium">
-                                                            QR Code {currentChunkIndex + 1} of {backupChunks.length}
-                                                        </p>
-                                                        <p className="text-sm text-muted-foreground">
-                                                            Make sure to scan all {backupChunks.length} QR codes for complete backup
-                                                        </p>
-                                                    </div>
+                                                {backupChunks.length > 1 && (
+                                                    <div className="mt-6 text-center space-y-4 w-full max-w-md">
+                                                        <div>
+                                                            <p className="text-lg font-medium">
+                                                                QR Code {currentChunkIndex + 1} of {backupChunks.length}
+                                                            </p>
+                                                            <p className="text-sm text-muted-foreground">
+                                                                Make sure to scan all {backupChunks.length} QR codes for complete backup
+                                                            </p>
+                                                        </div>
 
-                                                    <div className="flex justify-center">
-                                                        <div className="grid grid-cols-5 gap-2 max-w-[250px]">
-                                                            {backupChunks.map((_, index) => (
-                                                                <div
-                                                                    key={index}
-                                                                    className={`w-10 h-10 rounded text-sm font-medium flex items-center justify-center border cursor-pointer transition-colors ${index === currentChunkIndex
-                                                                        ? 'bg-primary text-primary-foreground border-primary'
-                                                                        : 'bg-muted text-muted-foreground border-border hover:bg-muted/80'
-                                                                        }`}
-                                                                    onClick={() => setCurrentChunkIndex(index)}
-                                                                    title={`View QR Code ${index + 1}`}
-                                                                >
-                                                                    {index + 1}
-                                                                </div>
-                                                            ))}
+                                                        <div className="flex justify-center">
+                                                            <div className="grid grid-cols-5 gap-2 max-w-[250px]">
+                                                                {backupChunks.map((_, index) => (
+                                                                    <div
+                                                                        key={index}
+                                                                        className={`w-10 h-10 rounded text-sm font-medium flex items-center justify-center border cursor-pointer transition-colors ${index === currentChunkIndex
+                                                                            ? 'bg-primary text-primary-foreground border-primary'
+                                                                            : 'bg-muted text-muted-foreground border-border hover:bg-muted/80'
+                                                                            }`}
+                                                                        onClick={() => setCurrentChunkIndex(index)}
+                                                                        title={`View QR Code ${index + 1}`}
+                                                                    >
+                                                                        {index + 1}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="flex gap-3">
+                                                            <Button
+                                                                variant="outline"
+                                                                onClick={() => setCurrentChunkIndex((idx) => Math.max(0, idx - 1))}
+                                                                disabled={currentChunkIndex === 0}
+                                                                className="flex-1"
+                                                            >
+                                                                <ArrowLeft className="h-4 w-4 mr-2" /> Previous
+                                                            </Button>
+                                                            <Button
+                                                                variant="outline"
+                                                                onClick={() =>
+                                                                    setCurrentChunkIndex((idx) => Math.min(backupChunks.length - 1, idx + 1))
+                                                                }
+                                                                disabled={currentChunkIndex === backupChunks.length - 1}
+                                                                className="flex-1"
+                                                            >
+                                                                Next <ArrowRight className="h-4 w-4 ml-2" />
+                                                            </Button>
                                                         </div>
                                                     </div>
-
-                                                    <div className="flex gap-3">
-                                                        <Button
-                                                            variant="outline"
-                                                            onClick={() => setCurrentChunkIndex((idx) => Math.max(0, idx - 1))}
-                                                            disabled={currentChunkIndex === 0}
-                                                            className="flex-1"
-                                                        >
-                                                            <ArrowLeft className="h-4 w-4 mr-2" /> Previous
-                                                        </Button>
-                                                        <Button
-                                                            variant="outline"
-                                                            onClick={() =>
-                                                                setCurrentChunkIndex((idx) => Math.min(backupChunks.length - 1, idx + 1))
-                                                            }
-                                                            disabled={currentChunkIndex === backupChunks.length - 1}
-                                                            className="flex-1"
-                                                        >
-                                                            Next <ArrowRight className="h-4 w-4 ml-2" />
-                                                        </Button>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        <Alert>
-                                            <AlertDescription>
-                                                Scan this QR code with your other device to transfer your wallet.
-                                                {backupChunks.length > 1 && ' Navigate through all QR codes for complete backup.'}
-                                                QR codes are optimized for mobile scanning with high contrast and low error correction.
-                                            </AlertDescription>
-                                        </Alert>
-
-                                        <Button
-                                            variant="outline"
-                                            onClick={() => {
-                                                setBackupChunks([]);
-                                                setCurrentChunkIndex(0);
-                                            }}
-                                            className="w-full"
-                                        >
-                                            <ChevronLeft className="h-4 w-4 mr-2" /> Generate New Backup
-                                        </Button>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-6">
-                                        <Alert>
-                                            <AlertDescription>
-                                                This will generate QR codes containing your wallet keys and addresses. For security, consider
-                                                adding a password. QR codes are optimized for mobile scanning and only include essential wallet data.
-                                            </AlertDescription>
-                                        </Alert>
-
-                                        <div className="space-y-4">
-                                            <div className="space-y-2">
-                                                <Label htmlFor="backupPassword">Backup Password (Optional)</Label>
-                                                <Input
-                                                    id="backupPassword"
-                                                    type="password"
-                                                    value={backupPassword}
-                                                    onChange={(e) => setBackupPassword(e.target.value)}
-                                                    placeholder="Enter a password to encrypt your backup"
-                                                />
-                                                <p className="text-sm text-muted-foreground">
-                                                    {backupPassword.length > 0
-                                                        ? "You'll need this password when restoring"
-                                                        : 'Without a password, anyone who scans your QR code can access your wallet'}
-                                                </p>
+                                                )}
                                             </div>
 
-                                            <Button onClick={generateBackupQR} disabled={isGenerating} className="w-full" size="lg">
-                                                {isGenerating
-                                                    ? 'Generating...'
-                                                    : 'Generate Wallet Backup QR Codes'}
-                                            </Button>
-                                        </div>
-                                    </div>
-                                )}
-                            </TabsContent>
-
-                            {/* Restore Tab */}
-                            <TabsContent value="restore" className="space-y-6 mt-6">
-                                {isCameraActive ? (
-                                    <div className="space-y-6">
-                                        <div className="relative">
-                                            <div className="aspect-square w-full max-w-[400px] mx-auto overflow-hidden rounded-lg border bg-muted">
-                                                <video
-                                                    ref={videoRef}
-                                                    className="h-full w-full object-cover"
-                                                    playsInline
-                                                    muted
-                                                    autoPlay
-                                                    webkit-playsinline="true"
-                                                />
-                                            </div>
-                                            <canvas ref={canvasRef} className="hidden" />
-                                        </div>
-
-                                        <div className="space-y-4">
-                                            <div className="flex justify-between text-sm">
-                                                <span className="font-medium">{scanPaused ? 'Paused' : 'Scanning'}</span>
-                                                <span className="font-medium">{Math.round(scanProgress)}%</span>
-                                            </div>
-                                            <Progress value={scanProgress} className="h-3" />
-
-                                            {/* QR Code Status Grid */}
-                                            {totalExpectedChunks && totalExpectedChunks > 1 && (
-                                                <div className="p-4 bg-muted/50 rounded-lg">
-                                                    <p className="text-sm font-medium mb-3 text-center">
-                                                        QR Code Status ({scannedChunkIndices.size} of {totalExpectedChunks})
-                                                    </p>
-                                                    <div className="grid grid-cols-5 gap-2 max-w-[250px] mx-auto">
-                                                        {Array.from({ length: totalExpectedChunks }, (_, index) => {
-                                                            const chunkNumber = index + 1;
-                                                            const isScanned = scannedChunkIndices.has(chunkNumber);
-                                                            return (
-                                                                <div
-                                                                    key={chunkNumber}
-                                                                    className={`w-10 h-10 rounded text-sm font-medium flex items-center justify-center border ${isScanned
-                                                                        ? 'bg-green-500 text-white border-green-600'
-                                                                        : 'bg-muted text-muted-foreground border-border'
-                                                                        }`}
-                                                                    title={`QR Code ${chunkNumber} - ${isScanned ? 'Scanned' : 'Not scanned'}`}
-                                                                >
-                                                                    {chunkNumber}
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                    <p className="text-xs text-center mt-3 text-muted-foreground">
-                                                        Green = Scanned, Gray = Still needed
-                                                    </p>
-                                                </div>
-                                            )}
-
-                                            {/* Duplicate Alert */}
-                                            {duplicateAlert && (
-                                                <Alert>
-                                                    <AlertDescription className="text-center">
-                                                        {duplicateAlert}
-                                                    </AlertDescription>
-                                                </Alert>
-                                            )}
-
-                                            <p className="text-sm text-center text-muted-foreground">
-                                                {scannedChunks.length > 0
-                                                    ? scanPaused
-                                                        ? totalExpectedChunks && scannedChunkIndices.size < totalExpectedChunks
-                                                            ? `Scanned ${scannedChunkIndices.size} of ${totalExpectedChunks} QR codes - ready for next`
-                                                            : `Scanned ${scannedChunks.length} QR code${scannedChunks.length !== 1 ? 's' : ''} - ready for next`
-                                                        : `Detected ${scannedChunks.length} QR code${scannedChunks.length !== 1 ? 's' : ''}`
-                                                    : 'Position your camera over the QR code'}
-                                            </p>
-                                        </div>
-
-                                        {scanPaused && scannedChunks.length > 0 && (
                                             <Alert>
                                                 <AlertDescription>
-                                                    {(() => {
-                                                        const lastChunk = lastScannedChunk;
-                                                        if (lastChunk) {
-                                                            const chunkInfo = BackupService.getQRChunkInfo(lastChunk);
-                                                            if (chunkInfo) {
-                                                                if (scannedChunkIndices.size >= chunkInfo.totalChunks) {
-                                                                    return 'All QR codes scanned! Processing backup...';
-                                                                }
-
-                                                                // Show which specific QR codes are still needed
-                                                                const missingChunks = [];
-                                                                for (let i = 1; i <= chunkInfo.totalChunks; i++) {
-                                                                    if (!scannedChunkIndices.has(i)) {
-                                                                        missingChunks.push(i);
-                                                                    }
-                                                                }
-
-                                                                if (missingChunks.length > 0) {
-                                                                    const missingText = missingChunks.length <= 3
-                                                                        ? missingChunks.join(', ')
-                                                                        : `${missingChunks.slice(0, 3).join(', ')} and ${missingChunks.length - 3} more`;
-                                                                    return `Successfully scanned QR code ${chunkInfo.index}! Still need QR code${missingChunks.length > 1 ? 's' : ''}: ${missingText}. Click "Continue Scanning" to scan another code.`;
-                                                                }
-                                                            }
-                                                        }
-                                                        return 'Successfully scanned QR code. Click "Continue Scanning" to scan the next QR code.';
-                                                    })()}
+                                                    Scan this QR code with your other device to transfer your wallet.
+                                                    {backupChunks.length > 1 && ' Navigate through all QR codes for complete backup.'}
+                                                    QR codes are optimized for mobile scanning with high contrast and low error correction.
                                                 </AlertDescription>
                                             </Alert>
-                                        )}
 
-                                        {restoreError && (
-                                            <Alert variant="destructive">
-                                                <AlertCircle className="h-4 w-4" />
-                                                <AlertDescription>{restoreError}</AlertDescription>
-                                            </Alert>
-                                        )}
-
-                                        {restoreError && restoreError.includes('password') && (
                                             <div className="space-y-3">
-                                                <Label htmlFor="restorePassword">Backup Password</Label>
-                                                <Input
-                                                    id="restorePassword"
-                                                    type="password"
-                                                    value={restorePassword}
-                                                    onChange={(e) => setRestorePassword(e.target.value)}
-                                                    placeholder="Enter backup password"
-                                                />
                                                 <Button
-                                                    className="w-full"
-                                                    disabled={!restorePassword.trim() || isRestoring}
-                                                    onClick={() => handleCompleteRestore(scannedChunks)}
-                                                    size="lg"
-                                                >
-                                                    {isRestoring ? 'Restoring...' : 'Try Again with Password'}
-                                                </Button>
-                                            </div>
-                                        )}
-
-                                        <div className="space-y-3">
-                                            {scanPaused && scannedChunks.length > 0 && (
-                                                <Button
-                                                    onClick={continueScanningAfterPause}
+                                                    onClick={downloadAllQRCodes}
+                                                    variant="default"
                                                     className="w-full"
                                                     size="lg"
                                                 >
-                                                    <Camera className="h-4 w-4 mr-2" /> Continue Scanning
-                                                </Button>
-                                            )}
-
-                                            <div className="flex gap-3">
-                                                <Button variant="outline" onClick={stopScanner} className="flex-1">
-                                                    <X className="h-4 w-4 mr-2" /> Stop Scanner
+                                                    <Download className="h-4 w-4 mr-2" />
+                                                    Download QR Code{backupChunks.length > 1 ? 's' : ''}
+                                                    {backupChunks.length > 1 && ` (${backupChunks.length} files)`}
                                                 </Button>
 
                                                 <Button
                                                     variant="outline"
                                                     onClick={() => {
-                                                        // Reset and restart the scanner
-                                                        stopScanner();
-                                                        setTimeout(startScanner, 500);
+                                                        setBackupChunks([]);
+                                                        setCurrentChunkIndex(0);
                                                     }}
-                                                    className="flex-1"
+                                                    className="w-full"
                                                 >
-                                                    <ArrowLeft className="h-4 w-4 mr-2" /> Restart
+                                                    <ChevronLeft className="h-4 w-4 mr-2" /> Generate New Backup
                                                 </Button>
                                             </div>
                                         </div>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-6">
-                                        <Alert>
-                                            <AlertDescription>
-                                                To restore your wallet from a QR code backup, you'll need to scan the QR code
-                                                from your other device. Hold your phone 8-12 inches away and ensure good lighting for best results.
-                                            </AlertDescription>
-                                        </Alert>
-
-                                        {restoreError && (
-                                            <Alert variant="destructive">
-                                                <AlertCircle className="h-4 w-4" />
-                                                <AlertDescription>{restoreError}</AlertDescription>
+                                    ) : (
+                                        <div className="space-y-6">
+                                            <Alert>
+                                                <AlertDescription>
+                                                    This will generate QR codes containing your wallet keys and addresses. For security, consider
+                                                    adding a password. QR codes are optimized for mobile scanning and only include essential wallet data.
+                                                </AlertDescription>
                                             </Alert>
-                                        )}
 
-                                        {!isScanning && (
                                             <div className="space-y-4">
                                                 <div className="space-y-2">
-                                                    <Label htmlFor="restorePassword">Backup Password (if encrypted)</Label>
-                                                    <Input
-                                                        id="restorePassword"
-                                                        type="password"
-                                                        value={restorePassword}
-                                                        onChange={(e) => setRestorePassword(e.target.value)}
-                                                        placeholder="Enter backup password (if needed)"
-                                                    />
+                                                    <Label htmlFor="backupPassword">Backup Password (Optional)</Label>
+                                                    <div className="relative">
+                                                        <Input
+                                                            id="backupPassword"
+                                                            type={showBackupPassword ? "text" : "password"}
+                                                            value={backupPassword}
+                                                            onChange={(e) => setBackupPassword(e.target.value)}
+                                                            placeholder="Enter a password to encrypt your backup"
+                                                            className="pr-10"
+                                                        />
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                                                            onClick={() => setShowBackupPassword(!showBackupPassword)}
+                                                        >
+                                                            {showBackupPassword ? (
+                                                                <EyeOff className="h-4 w-4 text-gray-500" />
+                                                            ) : (
+                                                                <Eye className="h-4 w-4 text-gray-500" />
+                                                            )}
+                                                        </Button>
+                                                    </div>
+                                                    <p className="text-sm text-muted-foreground">
+                                                        {backupPassword.length > 0
+                                                            ? "You'll need this password when restoring"
+                                                            : 'Without a password, anyone who scans your QR code can access your wallet'}
+                                                    </p>
                                                 </div>
 
-                                                <Button onClick={startScanner} className="w-full" size="lg">
-                                                    <Camera className="h-4 w-4 mr-2" /> Start Camera Scan
+                                                <Button onClick={generateBackupQR} disabled={isGenerating} className="w-full" size="lg">
+                                                    {isGenerating
+                                                        ? 'Generating...'
+                                                        : 'Generate Wallet Backup QR Codes'}
                                                 </Button>
                                             </div>
-                                        )}
-                                    </div>
-                                )}
-                            </TabsContent>
-                        </Tabs>
-                    </CardContent>
-                </Card>
-            </div>
-        </AppLayout>
+                                        </div>
+                                    )}
+                                </TabsContent>
+
+                                {/* Restore Tab */}
+                                <TabsContent value="restore" className="space-y-6 mt-6">
+                                    {isCameraActive ? (
+                                        <div className="space-y-6">
+                                            <div className="relative">
+                                                <div className="aspect-square w-full max-w-[400px] mx-auto overflow-hidden rounded-lg border bg-muted">
+                                                    <video
+                                                        ref={videoRef}
+                                                        className="h-full w-full object-cover"
+                                                        playsInline
+                                                        muted
+                                                        autoPlay
+                                                        webkit-playsinline="true"
+                                                    />
+                                                </div>
+                                                <canvas ref={canvasRef} className="hidden" />
+                                            </div>
+
+                                            <div className="space-y-4">
+                                                <div className="flex justify-between text-sm">
+                                                    <span className="font-medium">{scanPaused ? 'Paused' : 'Scanning'}</span>
+                                                    <span className="font-medium">{Math.round(scanProgress)}%</span>
+                                                </div>
+                                                <Progress value={scanProgress} className="h-3" />
+
+                                                {/* QR Code Status Grid */}
+                                                {totalExpectedChunks && totalExpectedChunks > 1 && (
+                                                    <div className="p-4 bg-muted/50 rounded-lg">
+                                                        <p className="text-sm font-medium mb-3 text-center">
+                                                            QR Code Status ({scannedChunkIndices.size} of {totalExpectedChunks})
+                                                        </p>
+                                                        <div className="grid grid-cols-5 gap-2 max-w-[250px] mx-auto">
+                                                            {Array.from({ length: totalExpectedChunks }, (_, index) => {
+                                                                const chunkNumber = index + 1;
+                                                                const isScanned = scannedChunkIndices.has(chunkNumber);
+                                                                return (
+                                                                    <div
+                                                                        key={chunkNumber}
+                                                                        className={`w-10 h-10 rounded text-sm font-medium flex items-center justify-center border ${isScanned
+                                                                            ? 'bg-green-500 text-white border-green-600'
+                                                                            : 'bg-muted text-muted-foreground border-border'
+                                                                            }`}
+                                                                        title={`QR Code ${chunkNumber} - ${isScanned ? 'Scanned' : 'Not scanned'}`}
+                                                                    >
+                                                                        {chunkNumber}
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                        <p className="text-xs text-center mt-3 text-muted-foreground">
+                                                            Green = Scanned, Gray = Still needed
+                                                        </p>
+                                                    </div>
+                                                )}
+
+                                                {/* Duplicate Alert */}
+                                                {duplicateAlert && (
+                                                    <Alert>
+                                                        <AlertDescription className="text-center">
+                                                            {duplicateAlert}
+                                                        </AlertDescription>
+                                                    </Alert>
+                                                )}
+
+                                                <p className="text-sm text-center text-muted-foreground">
+                                                    {scannedChunks.length > 0
+                                                        ? scanPaused
+                                                            ? totalExpectedChunks && scannedChunkIndices.size < totalExpectedChunks
+                                                                ? `Scanned ${scannedChunkIndices.size} of ${totalExpectedChunks} QR codes - ready for next`
+                                                                : `Scanned ${scannedChunks.length} QR code${scannedChunks.length !== 1 ? 's' : ''} - ready for next`
+                                                            : `Detected ${scannedChunks.length} QR code${scannedChunks.length !== 1 ? 's' : ''}`
+                                                        : 'Position your camera over the QR code'}
+                                                </p>
+                                            </div>
+
+                                            {scanPaused && scannedChunks.length > 0 && (
+                                                <Alert>
+                                                    <AlertDescription>
+                                                        {(() => {
+                                                            const lastChunk = lastScannedChunk;
+                                                            if (lastChunk) {
+                                                                const chunkInfo = BackupService.getQRChunkInfo(lastChunk);
+                                                                if (chunkInfo) {
+                                                                    if (scannedChunkIndices.size >= chunkInfo.totalChunks) {
+                                                                        return 'All QR codes scanned! Processing backup...';
+                                                                    }
+
+                                                                    // Show which specific QR codes are still needed
+                                                                    const missingChunks = [];
+                                                                    for (let i = 1; i <= chunkInfo.totalChunks; i++) {
+                                                                        if (!scannedChunkIndices.has(i)) {
+                                                                            missingChunks.push(i);
+                                                                        }
+                                                                    }
+
+                                                                    if (missingChunks.length > 0) {
+                                                                        const missingText = missingChunks.length <= 3
+                                                                            ? missingChunks.join(', ')
+                                                                            : `${missingChunks.slice(0, 3).join(', ')} and ${missingChunks.length - 3} more`;
+                                                                        return `Successfully scanned QR code ${chunkInfo.index}! Still need QR code${missingChunks.length > 1 ? 's' : ''}: ${missingText}. Click "Continue Scanning" to scan another code.`;
+                                                                    }
+                                                                }
+                                                            }
+                                                            return 'Successfully scanned QR code. Click "Continue Scanning" to scan the next QR code.';
+                                                        })()}
+                                                    </AlertDescription>
+                                                </Alert>
+                                            )}
+
+                                            {restoreError && (
+                                                <Alert variant="destructive">
+                                                    <AlertCircle className="h-4 w-4" />
+                                                    <AlertDescription>{restoreError}</AlertDescription>
+                                                </Alert>
+                                            )}
+
+                                            {restoreError && restoreError.includes('password') && (
+                                                <div className="space-y-3">
+                                                    <Label htmlFor="restorePassword">Backup Password</Label>
+                                                    <div className="relative">
+                                                        <Input
+                                                            id="restorePassword"
+                                                            type={showRestorePassword ? "text" : "password"}
+                                                            value={restorePassword}
+                                                            onChange={(e) => setRestorePassword(e.target.value)}
+                                                            placeholder="Enter backup password"
+                                                            className="pr-10"
+                                                        />
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                                                            onClick={() => setShowRestorePassword(!showRestorePassword)}
+                                                        >
+                                                            {showRestorePassword ? (
+                                                                <EyeOff className="h-4 w-4 text-gray-500" />
+                                                            ) : (
+                                                                <Eye className="h-4 w-4 text-gray-500" />
+                                                            )}
+                                                        </Button>
+                                                    </div>
+                                                    <Button
+                                                        className="w-full"
+                                                        disabled={!restorePassword.trim() || isRestoring}
+                                                        onClick={() => handleCompleteRestore(scannedChunks)}
+                                                        size="lg"
+                                                    >
+                                                        {isRestoring ? 'Restoring...' : 'Try Again with Password'}
+                                                    </Button>
+                                                </div>
+                                            )}
+
+                                            <div className="space-y-3">
+                                                {scanPaused && scannedChunks.length > 0 && (
+                                                    <Button
+                                                        onClick={continueScanningAfterPause}
+                                                        className="w-full"
+                                                        size="lg"
+                                                    >
+                                                        <Camera className="h-4 w-4 mr-2" /> Continue Scanning
+                                                    </Button>
+                                                )}
+
+                                                <div className="flex gap-3">
+                                                    <Button variant="outline" onClick={stopScanner} className="flex-1">
+                                                        <X className="h-4 w-4 mr-2" /> Stop Scanner
+                                                    </Button>
+
+                                                    <Button
+                                                        variant="outline"
+                                                        onClick={() => {
+                                                            // Reset and restart the scanner
+                                                            stopScanner();
+                                                            setTimeout(startScanner, 500);
+                                                        }}
+                                                        className="flex-1"
+                                                    >
+                                                        <ArrowLeft className="h-4 w-4 mr-2" /> Restart
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-6">
+                                            <Alert>
+                                                <AlertDescription>
+                                                    To restore your wallet from a QR code backup, you'll need to scan the QR code
+                                                    from your other device. Hold your phone 8-12 inches away and ensure good lighting for best results.
+                                                </AlertDescription>
+                                            </Alert>
+
+                                            {restoreError && (
+                                                <Alert variant="destructive">
+                                                    <AlertCircle className="h-4 w-4" />
+                                                    <AlertDescription>{restoreError}</AlertDescription>
+                                                </Alert>
+                                            )}
+
+                                            {!isScanning && (
+                                                <div className="space-y-4">
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="restorePassword">Backup Password (if encrypted)</Label>
+                                                        <div className="relative">
+                                                            <Input
+                                                                id="restorePassword"
+                                                                type={showRestorePassword ? "text" : "password"}
+                                                                value={restorePassword}
+                                                                onChange={(e) => setRestorePassword(e.target.value)}
+                                                                placeholder="Enter backup password (if needed)"
+                                                                className="pr-10"
+                                                            />
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                                                                onClick={() => setShowRestorePassword(!showRestorePassword)}
+                                                            >
+                                                                {showRestorePassword ? (
+                                                                    <EyeOff className="h-4 w-4 text-gray-500" />
+                                                                ) : (
+                                                                    <Eye className="h-4 w-4 text-gray-500" />
+                                                                )}
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+
+                                                    <Button onClick={startScanner} className="w-full" size="lg">
+                                                        <Camera className="h-4 w-4 mr-2" /> Start Camera Scan
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </TabsContent>
+                            </Tabs>
+                        </CardContent>
+                    </Card>
+                </div>
+            </AppLayout>
+        </RouteGuard>
     );
 }

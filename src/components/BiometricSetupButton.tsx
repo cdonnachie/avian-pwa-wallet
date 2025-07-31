@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Fingerprint, Check, AlertCircle, Loader2 } from 'lucide-react';
+import { Fingerprint, Check, AlertCircle, Loader2, Eye, EyeOff } from 'lucide-react';
 import { securityService } from '@/services/core/SecurityService';
 import { StorageService } from '@/services/core/StorageService';
 import { toast } from 'sonner';
@@ -25,6 +25,7 @@ export default function BiometricSetupButton({
   const [canSetup, setCanSetup] = useState(false);
   const [requiresPassword, setRequiresPassword] = useState(false);
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [showPasswordInput, setShowPasswordInput] = useState(false);
   const [walletInfo, setWalletInfo] = useState<{ name?: string; address?: string }>({});
   const [walletIsSetup, setWalletIsSetup] = useState(false);
@@ -180,14 +181,28 @@ export default function BiometricSetupButton({
   if (showPasswordInput) {
     return (
       <div className="flex flex-col gap-3">
-        <input
-          type="password"
-          placeholder="Enter wallet password"
-          className="w-full bg-white/10 border-0 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          disabled={isLoading}
-        />
+        <div className="relative">
+          <input
+            type={showPassword ? "text" : "password"}
+            placeholder="Enter wallet password"
+            className="w-full bg-white/10 border-0 text-white px-4 py-3 pr-12 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            disabled={isLoading}
+          />
+          <button
+            type="button"
+            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
+            onClick={() => setShowPassword(!showPassword)}
+            disabled={isLoading}
+          >
+            {showPassword ? (
+              <EyeOff className="h-5 w-5" />
+            ) : (
+              <Eye className="h-5 w-5" />
+            )}
+          </button>
+        </div>
         <div className="flex gap-3 mt-2">
           <button
             className="flex-1 py-3 px-4 bg-transparent border border-gray-600 text-white rounded-lg hover:bg-white/5"

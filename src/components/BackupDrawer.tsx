@@ -10,6 +10,8 @@ import {
   Lock,
   CheckCircle,
   AlertCircle,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { BackupService } from '@/services/core/BackupService';
 import { WalletBackup, RestoreOptions } from '@/types/backup';
@@ -39,6 +41,8 @@ export default function BackupDrawer({ isOpen, onClose, onSuccess, onError }: Ba
   const [backupType, setBackupType] = useState<'full' | 'wallets'>('full');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [useEncryption, setUseEncryption] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [backupSummary, setBackupSummary] = useState<any>(null);
@@ -47,6 +51,7 @@ export default function BackupDrawer({ isOpen, onClose, onSuccess, onError }: Ba
   // Restore state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [restorePassword, setRestorePassword] = useState('');
+  const [showRestorePassword, setShowRestorePassword] = useState(false);
   const [restoreOptions, setRestoreOptions] = useState<RestoreOptions>({
     includeWallets: true,
     includeAddressBook: true,
@@ -61,6 +66,9 @@ export default function BackupDrawer({ isOpen, onClose, onSuccess, onError }: Ba
     setPassword('');
     setConfirmPassword('');
     setRestorePassword('');
+    setShowPassword(false);
+    setShowConfirmPassword(false);
+    setShowRestorePassword(false);
     setSelectedFile(null);
     setBackupPreview(null);
     setBackupSummary(null);
@@ -285,23 +293,55 @@ export default function BackupDrawer({ isOpen, onClose, onSuccess, onError }: Ba
               <div className="space-y-3">
                 <div className="space-y-1">
                   <Label htmlFor="password">Backup Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="Backup encryption password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Backup encryption password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="pr-10"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4 text-gray-500" />
+                      ) : (
+                        <Eye className="h-4 w-4 text-gray-500" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="confirmPassword">Confirm Password</Label>
-                  <Input
-                    id="confirmPassword"
-                    type="password"
-                    placeholder="Confirm password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                  />
+                  <div className="relative">
+                    <Input
+                      id="confirmPassword"
+                      type={showConfirmPassword ? "text" : "password"}
+                      placeholder="Confirm password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="pr-10"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff className="h-4 w-4 text-gray-500" />
+                      ) : (
+                        <Eye className="h-4 w-4 text-gray-500" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
@@ -388,14 +428,29 @@ export default function BackupDrawer({ isOpen, onClose, onSuccess, onError }: Ba
                   Backup Password
                 </Label>
                 <div className="flex space-x-2">
-                  <Input
-                    id="restorePassword"
-                    type="password"
-                    placeholder="Enter backup encryption password"
-                    value={restorePassword}
-                    onChange={(e) => setRestorePassword(e.target.value)}
-                    className="flex-1"
-                  />
+                  <div className="relative flex-1">
+                    <Input
+                      id="restorePassword"
+                      type={showRestorePassword ? "text" : "password"}
+                      placeholder="Enter backup encryption password"
+                      value={restorePassword}
+                      onChange={(e) => setRestorePassword(e.target.value)}
+                      className="pr-10"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowRestorePassword(!showRestorePassword)}
+                    >
+                      {showRestorePassword ? (
+                        <EyeOff className="h-4 w-4 text-gray-500" />
+                      ) : (
+                        <Eye className="h-4 w-4 text-gray-500" />
+                      )}
+                    </Button>
+                  </div>
                   <Button onClick={handlePasswordVerify} disabled={isLoading || !restorePassword}>
                     {isLoading ? 'Verifying...' : 'Verify'}
                   </Button>

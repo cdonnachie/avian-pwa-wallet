@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Check, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Check, RefreshCw, AlertTriangle, Eye, EyeOff } from 'lucide-react';
 import * as bip39 from 'bip39';
 import PasswordStrengthChecker, { PasswordStrength } from '@/components/PasswordStrength';
 import { StorageService } from '@/services/core/StorageService';
@@ -74,6 +74,11 @@ export default function WalletCreationForm({
   // Generated mnemonic for create mode
   const [generatedMnemonic, setGeneratedMnemonic] = useState<string>('');
   const [showMnemonic, setShowMnemonic] = useState<boolean>(false);
+
+  // Password visibility states
+  const [showPassphrase, setShowPassphrase] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Generate a creative bird-themed wallet name
   const generateWalletName = useCallback(async () => {
@@ -537,15 +542,32 @@ export default function WalletCreationForm({
 
             <div className="space-y-2">
               <Label htmlFor="create-password">Password</Label>
-              <Input
-                id="create-password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter password"
-                autoComplete="new-password"
-                disabled={isSubmitting}
-              />
+              <div className="relative">
+                <Input
+                  id="create-password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter password"
+                  autoComplete="new-password"
+                  disabled={isSubmitting}
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                  onClick={() => setShowPassword(!showPassword)}
+                  disabled={isSubmitting}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4 text-gray-500" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-gray-500" />
+                  )}
+                </Button>
+              </div>
 
               {/* Password strength component */}
               <PasswordStrengthChecker
@@ -557,15 +579,32 @@ export default function WalletCreationForm({
 
             <div className="space-y-2">
               <Label htmlFor="confirm-password">Confirm Password</Label>
-              <Input
-                id="confirm-password"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Confirm password"
-                autoComplete="new-password"
-                disabled={isSubmitting}
-              />
+              <div className="relative">
+                <Input
+                  id="confirm-password"
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Confirm password"
+                  autoComplete="new-password"
+                  disabled={isSubmitting}
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  disabled={isSubmitting}
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff className="h-4 w-4 text-gray-500" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-gray-500" />
+                  )}
+                </Button>
+              </div>
             </div>
 
             {passwordError && (
@@ -658,14 +697,31 @@ export default function WalletCreationForm({
                     <Label htmlFor="passphrase" className="flex items-center">
                       <span>BIP39 Passphrase (Optional &quot;25th Word&quot;)</span>
                     </Label>
-                    <Input
-                      id="passphrase"
-                      type="password"
-                      value={passphrase}
-                      onChange={(e) => setPassphrase(e.target.value)}
-                      placeholder="Enter optional passphrase for extra security"
-                      disabled={isSubmitting}
-                    />
+                    <div className="relative">
+                      <Input
+                        id="passphrase"
+                        type={showPassphrase ? "text" : "password"}
+                        value={passphrase}
+                        onChange={(e) => setPassphrase(e.target.value)}
+                        placeholder="Enter optional passphrase for extra security"
+                        disabled={isSubmitting}
+                        className="pr-10"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                        onClick={() => setShowPassphrase(!showPassphrase)}
+                        disabled={isSubmitting}
+                      >
+                        {showPassphrase ? (
+                          <EyeOff className="h-4 w-4 text-gray-500" />
+                        ) : (
+                          <Eye className="h-4 w-4 text-gray-500" />
+                        )}
+                      </Button>
+                    </div>
                     <p className="text-xs text-muted-foreground">
                       A passphrase adds an extra layer of security. If used, you&apos;ll need both
                       the recovery phrase AND this passphrase to restore your wallet.
@@ -810,14 +866,31 @@ export default function WalletCreationForm({
                     <Label htmlFor="passphrase" className="flex items-center">
                       <span>BIP39 Passphrase (Optional &quot;25th Word&quot;)</span>
                     </Label>
-                    <Input
-                      id="passphrase"
-                      type="password"
-                      value={passphrase}
-                      onChange={(e) => setPassphrase(e.target.value)}
-                      placeholder="Enter optional passphrase for extra security"
-                      disabled={isSubmitting}
-                    />
+                    <div className="relative">
+                      <Input
+                        id="passphrase"
+                        type={showPassphrase ? "text" : "password"}
+                        value={passphrase}
+                        onChange={(e) => setPassphrase(e.target.value)}
+                        placeholder="Enter optional passphrase for extra security"
+                        disabled={isSubmitting}
+                        className="pr-10"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                        onClick={() => setShowPassphrase(!showPassphrase)}
+                        disabled={isSubmitting}
+                      >
+                        {showPassphrase ? (
+                          <EyeOff className="h-4 w-4 text-gray-500" />
+                        ) : (
+                          <Eye className="h-4 w-4 text-gray-500" />
+                        )}
+                      </Button>
+                    </div>
                     <p className="text-xs text-muted-foreground">
                       Only enter if you used a passphrase when creating your wallet.
                     </p>
@@ -889,15 +962,32 @@ export default function WalletCreationForm({
 
             <div className="space-y-2">
               <Label htmlFor="import-password">Password</Label>
-              <Input
-                id="import-password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter password"
-                autoComplete="new-password"
-                disabled={isSubmitting}
-              />
+              <div className="relative">
+                <Input
+                  id="import-password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter password"
+                  autoComplete="new-password"
+                  disabled={isSubmitting}
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                  onClick={() => setShowPassword(!showPassword)}
+                  disabled={isSubmitting}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4 text-gray-500" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-gray-500" />
+                  )}
+                </Button>
+              </div>
 
               <PasswordStrengthChecker
                 password={password}
@@ -908,15 +998,32 @@ export default function WalletCreationForm({
 
             <div className="space-y-2">
               <Label htmlFor="import-confirm-password">Confirm Password</Label>
-              <Input
-                id="import-confirm-password"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Confirm password"
-                autoComplete="new-password"
-                disabled={isSubmitting}
-              />
+              <div className="relative">
+                <Input
+                  id="import-confirm-password"
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Confirm password"
+                  autoComplete="new-password"
+                  disabled={isSubmitting}
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  disabled={isSubmitting}
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff className="h-4 w-4 text-gray-500" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-gray-500" />
+                  )}
+                </Button>
+              </div>
             </div>
 
             {passwordError && (
@@ -1019,15 +1126,32 @@ export default function WalletCreationForm({
 
             <div className="space-y-2">
               <Label htmlFor="wif-import-password">Password</Label>
-              <Input
-                id="wif-import-password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter password"
-                autoComplete="new-password"
-                disabled={isSubmitting}
-              />
+              <div className="relative">
+                <Input
+                  id="wif-import-password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter password"
+                  autoComplete="new-password"
+                  disabled={isSubmitting}
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                  onClick={() => setShowPassword(!showPassword)}
+                  disabled={isSubmitting}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4 text-gray-500" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-gray-500" />
+                  )}
+                </Button>
+              </div>
 
               <PasswordStrengthChecker
                 password={password}
@@ -1038,15 +1162,32 @@ export default function WalletCreationForm({
 
             <div className="space-y-2">
               <Label htmlFor="wif-import-confirm-password">Confirm Password</Label>
-              <Input
-                id="wif-import-confirm-password"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Confirm password"
-                autoComplete="new-password"
-                disabled={isSubmitting}
-              />
+              <div className="relative">
+                <Input
+                  id="wif-import-confirm-password"
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Confirm password"
+                  autoComplete="new-password"
+                  disabled={isSubmitting}
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  disabled={isSubmitting}
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff className="h-4 w-4 text-gray-500" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-gray-500" />
+                  )}
+                </Button>
+              </div>
             </div>
 
             {passwordError && (

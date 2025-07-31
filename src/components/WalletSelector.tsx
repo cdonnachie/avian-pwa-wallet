@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useWallet } from '@/contexts/WalletContext';
 import { useRouter } from 'next/navigation';
 import { ChevronUp, Plus, Settings, Copy, Check } from 'lucide-react';
@@ -26,41 +26,129 @@ interface WalletData {
     balance?: number;
 }
 
+// Detect iOS Safari for compatibility adjustments
+const isIOSSafari = () => {
+    if (typeof window === 'undefined') return false;
+    const ua = window.navigator.userAgent;
+    const iOS = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
+    const webkit = /WebKit/.test(ua);
+    const chrome = /CriOS|Chrome/.test(ua);
+    return iOS && webkit && !chrome;
+};
+
 // Custom wallet avatar component with properly scaled minidenticon
 const WalletAvatar = ({ name, address, size = 'lg' }: { name: string; address: string; size?: 'sm' | 'md' | 'lg' }) => {
+    const [imageError, setImageError] = useState(false);
+    const [canvasDataUrl, setCanvasDataUrl] = useState<string | null>(null);
+    const isIOS = useMemo(() => isIOSSafari(), []);
+
     const sizeClasses = {
         sm: 'h-8 w-8',
         md: 'h-10 w-10',
         lg: 'h-16 w-16',
     };
 
+    const sizePx = {
+        sm: 32,
+        md: 40,
+        lg: 64,
+    };
+
     // Generate minidenticon with proper scaling for larger avatars
     const identiconSvg = useMemo(() => {
-        // Use larger scale values for better visibility in large avatars
-        const saturation = size === 'lg' ? 95 : 90;
-        const lightness = size === 'lg' ? 45 : 50;
-        return minidenticon(address, saturation, lightness);
+        try {
+            // Use larger scale values for better visibility in large avatars
+            const saturation = size === 'lg' ? 95 : 90;
+            const lightness = size === 'lg' ? 45 : 50;
+            return minidenticon(address, saturation, lightness);
+        } catch (error) {
+            // If minidenticon fails, return null to fallback to initials
+            console.warn('Failed to generate minidenticon:', error);
+            return null;
+        }
     }, [address, size]);
 
     const fallbackInitials = useMemo(() => {
         return name
             .split(' ')
-            .map((word) => word.charAt(0))
+            .map((word: string) => word.charAt(0))
             .slice(0, 2)
             .join('')
             .toUpperCase();
     }, [name]);
 
+    // Convert SVG string to data URL for better iOS compatibility
+    const svgDataUrl = useMemo(() => {
+        if (!identiconSvg || imageError || isIOS) return null;
+        try {
+            const encodedSvg = encodeURIComponent(identiconSvg);
+            return `data:image/svg+xml,${encodedSvg}`;
+        } catch (error) {
+            console.warn('Failed to encode SVG:', error);
+            return null;
+        }
+    }, [identiconSvg, imageError, isIOS]);
+
+    // Generate canvas-based avatar as primary approach for iOS
+    useEffect(() => {
+        if (!identiconSvg || canvasDataUrl || (!isIOS && !imageError)) return;
+
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const dimension = sizePx[size];
+        canvas.width = dimension;
+        canvas.height = dimension;
+
+        try {
+            // Create an image from the SVG
+            const img = new Image();
+            img.onload = () => {
+                try {
+                    ctx.drawImage(img, 0, 0, dimension, dimension);
+                    const dataUrl = canvas.toDataURL('image/png');
+                    setCanvasDataUrl(dataUrl);
+                } catch (canvasError) {
+                    console.warn('Canvas toDataURL failed:', canvasError);
+                }
+            };
+            img.onerror = () => {
+                console.warn('Failed to load SVG into canvas');
+            };
+
+            const encodedSvg = encodeURIComponent(identiconSvg);
+            img.src = `data:image/svg+xml,${encodedSvg}`;
+        } catch (error) {
+            console.warn('Canvas avatar generation failed:', error);
+        }
+    }, [identiconSvg, size, canvasDataUrl, isIOS, imageError, sizePx]);
+
     return (
         <Avatar className={`${sizeClasses[size]} bg-gray-100 dark:bg-gray-800 flex-shrink-0`}>
-            {identiconSvg ? (
-                <div
-                    className="w-full h-full flex items-center justify-center p-2 [&>svg]:!w-auto [&>svg]:!h-auto"
+            {!isIOS && svgDataUrl && !imageError ? (
+                <img
+                    src={svgDataUrl}
+                    alt={`${name} avatar`}
+                    className="w-full h-full object-cover rounded-full"
                     style={{
-                        transform: size === 'lg' ? 'scale(1.2)' : 'scale(1)',
-                        transformOrigin: 'center'
+                        imageRendering: 'crisp-edges',
                     }}
-                    dangerouslySetInnerHTML={{ __html: identiconSvg }}
+                    onError={() => {
+                        setImageError(true);
+                    }}
+                    onLoad={() => {
+                        setImageError(false);
+                    }}
+                />
+            ) : canvasDataUrl ? (
+                <img
+                    src={canvasDataUrl}
+                    alt={`${name} avatar`}
+                    className="w-full h-full object-cover rounded-full"
+                    style={{
+                        imageRendering: 'crisp-edges',
+                    }}
                 />
             ) : (
                 <AvatarFallback className="bg-primary/10 text-primary text-xs font-medium">
@@ -113,6 +201,43 @@ export function WalletSelector() {
     useEffect(() => {
         loadWallets();
     }, [address, balance]);
+
+    // Listen for wallet events to keep the selector in sync
+    useEffect(() => {
+        const handleWalletSwitched = () => {
+            loadWallets();
+        };
+
+        const handleWalletCreated = () => {
+            loadWallets();
+        };
+
+        const handleWalletDeleted = () => {
+            loadWallets();
+        };
+
+        const handleWalletImported = () => {
+            loadWallets();
+        };
+
+        const handleWalletNameUpdated = () => {
+            loadWallets();
+        };
+
+        window.addEventListener('wallet-switched', handleWalletSwitched);
+        window.addEventListener('wallet-created', handleWalletCreated);
+        window.addEventListener('wallet-deleted', handleWalletDeleted);
+        window.addEventListener('wallet-imported', handleWalletImported);
+        window.addEventListener('wallet-name-updated', handleWalletNameUpdated);
+
+        return () => {
+            window.removeEventListener('wallet-switched', handleWalletSwitched);
+            window.removeEventListener('wallet-created', handleWalletCreated);
+            window.removeEventListener('wallet-deleted', handleWalletDeleted);
+            window.removeEventListener('wallet-imported', handleWalletImported);
+            window.removeEventListener('wallet-name-updated', handleWalletNameUpdated);
+        };
+    }, []);
 
     // Handle wallet switching
     const handleSwitchWallet = async (walletId: number) => {

@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useWallet } from '@/contexts/WalletContext';
 import { EnhancedUTXO, UTXOSelectionService } from '@/services/wallet/UTXOSelectionService';
 import { StorageService } from '@/services/core/StorageService';
 import AuthenticationDialog from '@/components/AuthenticationDialog';
+import { UTXOSelector } from '@/components/UTXOSelector';
 import {
   Coins,
   TrendingUp,
@@ -12,8 +13,28 @@ import {
   Check,
   X,
   RefreshCcw,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Shuffle,
 } from 'lucide-react';
 import { useMediaQuery } from '@/hooks/use-media-query';
+import {
+  ColumnDef,
+  ColumnFiltersState,
+  SortingState,
+  VisibilityState,
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+} from '@tanstack/react-table';
 
 // Import Shadcn UI components
 import {
@@ -42,13 +63,23 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 
 interface UTXOOverviewProps {
   isOpen: boolean;
   onClose: () => void;
+  onConsolidateUTXOs?: (selectedUTXOs: EnhancedUTXO[]) => void; // Optional callback for consolidation
+  maxInputs?: number; // Maximum number of inputs for consolidation (default 500)
 }
 
-export function UTXOOverview({ isOpen, onClose }: UTXOOverviewProps) {
+export function UTXOOverview({ isOpen, onClose, onConsolidateUTXOs, maxInputs = 500 }: UTXOOverviewProps) {
   const { wallet, electrum, address, balance, deriveCurrentWalletAddresses } = useWallet();
   const [utxos, setUtxos] = useState<EnhancedUTXO[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,7 +89,231 @@ export function UTXOOverview({ isOpen, onClose }: UTXOOverviewProps) {
   const [allAddressesLoaded, setAllAddressesLoaded] = useState(false);
   const [showAuthDialog, setShowAuthDialog] = useState(false);
   const [totalHdBalance, setTotalHdBalance] = useState<number>(0);
+  const [showConsolidationSelector, setShowConsolidationSelector] = useState(false);
+
+  // Table state
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [rowSelection, setRowSelection] = useState({});
+
   const isMobile = useMediaQuery('(max-width: 768px)');
+
+  const formatAVN = (satoshis: number) => {
+    return (satoshis / 100000000).toFixed(8);
+  };
+
+  const formatTxId = (txid: string) => {
+    return `${txid.slice(0, 8)}...${txid.slice(-8)}`;
+  };
+
+  const getConfirmationIcon = (confirmations: number) => {
+    if (confirmations === 0) return <Clock className="w-4 h-4 text-yellow-500" />;
+    if (confirmations < 6) return <AlertCircle className="w-4 h-4 text-orange-500" />;
+    return <Check className="w-4 h-4 text-green-500" />;
+  };
+
+  const getConfirmationStatus = (confirmations: number) => {
+    if (confirmations === 0) return 'Pending';
+    if (confirmations < 6) return 'Confirming';
+    return 'Confirmed';
+  };
+
+  // Column definitions
+  const columns: ColumnDef<EnhancedUTXO>[] = useMemo(
+    () => [
+      {
+        accessorKey: 'txid',
+        header: ({ column }) => {
+          return (
+            <Button
+              variant="ghost"
+              onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+              className="h-auto p-0 font-medium"
+            >
+              Transaction
+              {column.getIsSorted() === 'asc' ? (
+                <ArrowUp className="ml-2 h-4 w-4" />
+              ) : column.getIsSorted() === 'desc' ? (
+                <ArrowDown className="ml-2 h-4 w-4" />
+              ) : (
+                <ArrowUpDown className="ml-2 h-4 w-4" />
+              )}
+            </Button>
+          );
+        },
+        cell: ({ row }) => (
+          <span className="font-mono text-xs text-muted-foreground">
+            {formatTxId(row.getValue('txid'))}
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'vout',
+        header: ({ column }) => {
+          return (
+            <Button
+              variant="ghost"
+              onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+              className="h-auto p-0 font-medium"
+            >
+              Output
+              {column.getIsSorted() === 'asc' ? (
+                <ArrowUp className="ml-2 h-4 w-4" />
+              ) : column.getIsSorted() === 'desc' ? (
+                <ArrowDown className="ml-2 h-4 w-4" />
+              ) : (
+                <ArrowUpDown className="ml-2 h-4 w-4" />
+              )}
+            </Button>
+          );
+        },
+        cell: ({ row }) => <span className="font-mono">{row.getValue('vout')}</span>,
+      },
+      {
+        accessorKey: 'address',
+        header: ({ column }) => {
+          return (
+            <Button
+              variant="ghost"
+              onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+              className="h-auto p-0 font-medium"
+            >
+              Address
+              {column.getIsSorted() === 'asc' ? (
+                <ArrowUp className="ml-2 h-4 w-4" />
+              ) : column.getIsSorted() === 'desc' ? (
+                <ArrowDown className="ml-2 h-4 w-4" />
+              ) : (
+                <ArrowUpDown className="ml-2 h-4 w-4" />
+              )}
+            </Button>
+          );
+        },
+        cell: ({ row }) => {
+          const address = row.getValue('address') as string;
+          return (
+            <span className="font-mono text-xs text-muted-foreground">
+              {address
+                ? `${address.substring(0, 8)}...${address.substring(address.length - 8)}`
+                : 'Unknown'}
+            </span>
+          );
+        },
+      },
+      {
+        accessorKey: 'value',
+        header: ({ column }) => {
+          return (
+            <Button
+              variant="ghost"
+              onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+              className="h-auto p-0 font-medium"
+            >
+              Amount
+              {column.getIsSorted() === 'asc' ? (
+                <ArrowUp className="ml-2 h-4 w-4" />
+              ) : column.getIsSorted() === 'desc' ? (
+                <ArrowDown className="ml-2 h-4 w-4" />
+              ) : (
+                <ArrowUpDown className="ml-2 h-4 w-4" />
+              )}
+            </Button>
+          );
+        },
+        cell: ({ row }) => {
+          const value = row.getValue('value') as number;
+          const isDust = value <= 10000;
+          const isSmall = value <= 2500000000; // 25 AVN threshold for consolidation consideration
+          return (
+            <div className="flex items-center gap-2">
+              <span className="font-mono">{formatAVN(value)} AVN</span>
+              {isDust && (
+                <Badge
+                  variant="outline"
+                  className="bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800"
+                >
+                  Dust
+                </Badge>
+              )}
+              {!isDust && isSmall && (
+                <Badge
+                  variant="outline"
+                  className="bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800"
+                >
+                  Small
+                </Badge>
+              )}
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: 'confirmations',
+        header: ({ column }) => {
+          return (
+            <Button
+              variant="ghost"
+              onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+              className="h-auto p-0 font-medium"
+            >
+              Confirmations
+              {column.getIsSorted() === 'asc' ? (
+                <ArrowUp className="ml-2 h-4 w-4" />
+              ) : column.getIsSorted() === 'desc' ? (
+                <ArrowDown className="ml-2 h-4 w-4" />
+              ) : (
+                <ArrowUpDown className="ml-2 h-4 w-4" />
+              )}
+            </Button>
+          );
+        },
+        cell: ({ row }) => (
+          <span className="text-muted-foreground">{row.getValue('confirmations') || 0}</span>
+        ),
+      },
+      {
+        id: 'status',
+        header: 'Status',
+        cell: ({ row }) => {
+          const confirmations = (row.getValue('confirmations') as number) || 0;
+          return (
+            <div className="flex items-center gap-2">
+              {getConfirmationIcon(confirmations)}
+              <span className="text-muted-foreground">
+                {getConfirmationStatus(confirmations)}
+              </span>
+            </div>
+          );
+        },
+      },
+    ],
+    [],
+  );
+
+  const table = useReactTable({
+    data: utxos,
+    columns,
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    onColumnVisibilityChange: setColumnVisibility,
+    onRowSelectionChange: setRowSelection,
+    state: {
+      sorting,
+      columnFilters,
+      columnVisibility,
+      rowSelection,
+    },
+    initialState: {
+      pagination: {
+        pageSize: isMobile ? 10 : 20,
+      },
+    },
+  });
 
   const loadUTXOs = useCallback(
     async (forceReload = false) => {
@@ -110,7 +365,7 @@ export function UTXOOverview({ isOpen, onClose }: UTXOOverviewProps) {
           confirmations: utxo.height ? Math.max(0, currentBlockHeight - utxo.height + 1) : 0,
           isConfirmed: utxo.height ? currentBlockHeight - utxo.height + 1 >= 1 : false,
           ageInBlocks: utxo.height ? currentBlockHeight - utxo.height + 1 : 0,
-          isDust: utxo.value <= 1000, // 0.00001 AVN threshold
+          isDust: utxo.value <= 10000, // 0.0001 AVN threshold (truly uneconomical UTXOs)
           address: utxo.address,
         }));
 
@@ -187,7 +442,7 @@ export function UTXOOverview({ isOpen, onClose }: UTXOOverviewProps) {
           confirmations: utxo.height ? Math.max(0, currentBlockHeight - utxo.height + 1) : 0,
           isConfirmed: utxo.height ? currentBlockHeight - utxo.height + 1 >= 1 : false,
           ageInBlocks: utxo.height ? currentBlockHeight - utxo.height + 1 : 0,
-          isDust: utxo.value <= 1000,
+          isDust: utxo.value <= 10000,
           address: utxo.address,
         }));
 
@@ -211,6 +466,26 @@ export function UTXOOverview({ isOpen, onClose }: UTXOOverviewProps) {
     setLoadingHdAddresses(false);
   }, []);
 
+  // Consolidation handlers
+  const handleConsolidateClick = useCallback(() => {
+    setShowConsolidationSelector(true);
+  }, []);
+
+  const handleConsolidationSelect = useCallback(
+    (selectedUTXOs: EnhancedUTXO[]) => {
+      setShowConsolidationSelector(false);
+      if (onConsolidateUTXOs) {
+        onConsolidateUTXOs(selectedUTXOs);
+      }
+      onClose(); // Close the overview modal
+    },
+    [onConsolidateUTXOs, onClose],
+  );
+
+  const handleConsolidationCancel = useCallback(() => {
+    setShowConsolidationSelector(false);
+  }, []);
+
   useEffect(() => {
     if (isOpen && electrum && address) {
       loadUTXOs();
@@ -222,21 +497,8 @@ export function UTXOOverview({ isOpen, onClose }: UTXOOverviewProps) {
   const totalUTXOs = utxos.length;
   const confirmedUTXOs = utxos.filter((u) => u.isConfirmed).length;
   const dustUTXOs = utxos.filter((u) => u.isDust).length;
+  const smallUTXOs = utxos.filter((u) => !u.isDust && u.value <= 2500000000).length; // Under 25 AVN but not dust
   const largeUTXOs = utxos.filter((u) => u.value > 100000000).length; // > 1 AVN
-
-  const formatAVN = (satoshis: number) => {
-    return (satoshis / 100000000).toFixed(8);
-  };
-
-  const formatTxId = (txid: string) => {
-    return `${txid.slice(0, 8)}...${txid.slice(-8)}`;
-  };
-
-  const getConfirmationIcon = (confirmations: number) => {
-    if (confirmations === 0) return <Clock className="w-4 h-4 text-yellow-500" />;
-    if (confirmations < 6) return <AlertCircle className="w-4 h-4 text-orange-500" />;
-    return <Check className="w-4 h-4 text-green-500" />;
-  };
 
   const renderContent = () => (
     <>
@@ -259,15 +521,15 @@ export function UTXOOverview({ isOpen, onClose }: UTXOOverviewProps) {
         <Card>
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-              {dustUTXOs}
+              {smallUTXOs}
             </div>
-            <div className="text-sm text-muted-foreground">Dust UTXOs</div>
+            <div className="text-sm text-muted-foreground">Small UTXOs</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{largeUTXOs}</div>
-            <div className="text-sm text-muted-foreground">Large UTXOs</div>
+            <div className="text-2xl font-bold text-red-600 dark:text-red-400">{dustUTXOs}</div>
+            <div className="text-sm text-muted-foreground">Dust UTXOs</div>
           </CardContent>
         </Card>
       </div>
@@ -381,79 +643,173 @@ export function UTXOOverview({ isOpen, onClose }: UTXOOverviewProps) {
         </div>
       ) : (
         <div className="space-y-4">
-          {/* UTXO List */}
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Transaction</TableHead>
-                  <TableHead>Output</TableHead>
-                  <TableHead>Address</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Confirmations</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {utxos.map((utxo, index) => (
-                  <TableRow key={`${utxo.txid}-${utxo.vout}`}>
-                    <TableCell>
-                      <span className="font-mono text-xs text-muted-foreground">
-                        {formatTxId(utxo.txid)}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <span className="font-mono">{utxo.vout}</span>
-                    </TableCell>
-                    <TableCell>
-                      <span className="font-mono text-xs text-muted-foreground">
-                        {utxo.address
-                          ? `${utxo.address.substring(0, 8)}...${utxo.address.substring(utxo.address.length - 8)}`
-                          : 'Unknown'}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono">{formatAVN(utxo.value)} AVN</span>
-                        {utxo.isDust && (
-                          <Badge
-                            variant="outline"
-                            className="bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800"
-                          >
-                            Dust
-                          </Badge>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-muted-foreground">{utxo.confirmations || 0}</span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {getConfirmationIcon(utxo.confirmations || 0)}
-                        <span className="text-muted-foreground">
-                          {utxo.confirmations === 0
-                            ? 'Pending'
-                            : utxo.confirmations! < 6
-                              ? 'Confirming'
-                              : 'Confirmed'}
-                        </span>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+          {/* Filter Input */}
+          <div className="flex items-center py-4">
+            <Input
+              placeholder="Filter by transaction ID or address..."
+              value={(table.getColumn('txid')?.getFilterValue() as string) ?? ''}
+              onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+                table.getColumn('txid')?.setFilterValue(event.target.value)
+              }
+              className="max-w-sm"
+            />
+          </div>
+
+          {/* Data Table */}
+          <div className="space-y-4">
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <TableRow key={headerGroup.id}>
+                      {headerGroup.headers.map((header) => {
+                        return (
+                          <TableHead key={header.id}>
+                            {header.isPlaceholder
+                              ? null
+                              : flexRender(
+                                header.column.columnDef.header,
+                                header.getContext()
+                              )}
+                          </TableHead>
+                        );
+                      })}
+                    </TableRow>
+                  ))}
+                </TableHeader>
+                <TableBody>
+                  {table.getRowModel().rows?.length ? (
+                    table.getRowModel().rows.map((row) => (
+                      <TableRow
+                        key={row.id}
+                        data-state={row.getIsSelected() && 'selected'}
+                      >
+                        {row.getVisibleCells().map((cell) => (
+                          <TableCell key={cell.id}>
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext()
+                            )}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={columns.length} className="h-24 text-center">
+                        No results.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Pagination */}
+            <div className="flex items-center justify-between space-x-2 py-4">
+              <div className="flex-1 text-sm text-muted-foreground">
+                {table.getFilteredSelectedRowModel().rows.length} of{' '}
+                {table.getFilteredRowModel().rows.length} row(s) selected.
+              </div>
+              <div className="flex items-center space-x-2">
+                <p className="text-sm font-medium">
+                  Page {table.getState().pagination.pageIndex + 1} of{' '}
+                  {table.getPageCount()}
+                </p>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    className="h-8 w-8 p-0"
+                    onClick={() => table.setPageIndex(0)}
+                    disabled={!table.getCanPreviousPage()}
+                  >
+                    <span className="sr-only">Go to first page</span>
+                    <ChevronsLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="h-8 w-8 p-0"
+                    onClick={() => table.previousPage()}
+                    disabled={!table.getCanPreviousPage()}
+                  >
+                    <span className="sr-only">Go to previous page</span>
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="h-8 w-8 p-0"
+                    onClick={() => table.nextPage()}
+                    disabled={!table.getCanNextPage()}
+                  >
+                    <span className="sr-only">Go to next page</span>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="h-8 w-8 p-0"
+                    onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                    disabled={!table.getCanNextPage()}
+                  >
+                    <span className="sr-only">Go to last page</span>
+                    <ChevronsRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Page size selector */}
+            <div className="flex items-center space-x-2">
+              <p className="text-sm font-medium">Rows per page</p>
+              <Select
+                value={`${table.getState().pagination.pageSize}`}
+                onValueChange={(value) => {
+                  table.setPageSize(Number(value));
+                }}
+              >
+                <SelectTrigger className="h-8 w-[70px]">
+                  <SelectValue placeholder={table.getState().pagination.pageSize} />
+                </SelectTrigger>
+                <SelectContent side="top">
+                  {[10, 20, 30, 40, 50].map((pageSize) => (
+                    <SelectItem key={pageSize} value={`${pageSize}`}>
+                      {pageSize}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Recommendations */}
-          {dustUTXOs > 5 && (
+          {(dustUTXOs > 0 || smallUTXOs > 3) && (
             <Alert className="bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800 text-yellow-800 dark:text-yellow-200">
               <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-              <AlertTitle>Dust Consolidation Recommended</AlertTitle>
-              <AlertDescription>
-                You have {dustUTXOs} dust UTXOs (very small amounts). Consider consolidating them in
-                a low-priority transaction to reduce future transaction fees.
+              <AlertTitle>UTXO Consolidation Recommended</AlertTitle>
+              <AlertDescription className="space-y-3">
+                {dustUTXOs > 0 && (
+                  <p>You have {dustUTXOs} dust UTXOs (less than 0.0001 AVN each) that may be uneconomical to spend.</p>
+                )}
+                {smallUTXOs > 3 && (
+                  <p>You have {smallUTXOs} small UTXOs (less than 25 AVN each) that would benefit from consolidation.</p>
+                )}
+                <p>Consider consolidating them in a low-priority transaction to reduce future transaction complexity and fees.</p>
+                {(dustUTXOs + smallUTXOs) > maxInputs && (
+                  <p className="text-sm font-medium">
+                    💡 Note: You have {dustUTXOs + smallUTXOs} eligible UTXOs but can only consolidate {maxInputs} at a time.
+                    You may need to repeat this process {Math.ceil((dustUTXOs + smallUTXOs) / maxInputs)} times.
+                  </p>
+                )}
+                {onConsolidateUTXOs && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleConsolidateClick}
+                    className="bg-yellow-100 dark:bg-yellow-900/40 border-yellow-300 dark:border-yellow-700 text-yellow-800 dark:text-yellow-200 hover:bg-yellow-200 dark:hover:bg-yellow-900/60"
+                  >
+                    <Shuffle className="h-4 w-4 mr-2" />
+                    Consolidate UTXOs {(dustUTXOs + smallUTXOs) > maxInputs && `(${maxInputs} max)`}
+                  </Button>
+                )}
               </AlertDescription>
             </Alert>
           )}
@@ -528,6 +884,22 @@ export function UTXOOverview({ isOpen, onClose }: UTXOOverviewProps) {
         title="Load All HD Addresses"
         message="Enter your wallet password to load UTXOs from all derived addresses (receiving and change addresses)."
         walletAddress={address || undefined}
+      />
+
+      {/* UTXO Consolidation Selector */}
+      <UTXOSelector
+        isOpen={showConsolidationSelector}
+        onClose={handleConsolidationCancel}
+        onSelect={handleConsolidationSelect}
+        initialSelection={
+          // Pre-select dust and small UTXOs, prioritizing smallest first, limited to maxInputs
+          utxos
+            .filter((utxo) => utxo.isDust || (!utxo.isDust && utxo.value <= 2500000000))
+            .sort((a, b) => a.value - b.value) // Sort smallest first for efficient consolidation
+            .slice(0, maxInputs) // Limit to maximum inputs
+        }
+        targetAmount={0} // No specific target for consolidation
+        maxInputs={maxInputs}
       />
     </>
   );

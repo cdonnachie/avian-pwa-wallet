@@ -18,6 +18,7 @@ import AuthenticationDialog from '@/components/AuthenticationDialog';
 import { AppLayout } from '@/components/AppLayout';
 import { HeaderActions } from '@/components/HeaderActions';
 import { StorageService } from '@/services/core/StorageService';
+import RouteGuard from '@/components/RouteGuard';
 
 export default function WalletSettingsPage() {
     const router = useRouter();
@@ -896,35 +897,37 @@ export default function WalletSettingsPage() {
     };
 
     return (
-        <AppLayout
-            headerProps={{
-                title: activeSection === 'wallets' ? 'Wallet Manager' :
-                    activeSection === 'addresses' ? 'Derived Addresses' :
-                        activeSection === 'recovery' ? 'Export Recovery Phrase' :
-                            activeSection === 'privatekey' ? 'Export Private Key' :
-                                activeSection === 'encryption' ? 'Wallet Encryption' :
-                                    activeSection === 'hdconfig' ? 'HD Wallet Config' :
-                                        'Wallet Management',
-                showBackButton: true,
-                customBackAction: handleBack,
-                actions: <HeaderActions />
-            }}
-        >
-            <div className="space-y-4 sm:space-y-6 max-w-screen-2xl px-2 sm:px-0">
-                {renderContent()}
-            </div>
-
-            {/* Authentication Dialog */}
-            <AuthenticationDialog
-                isOpen={showAuthDialog}
-                onClose={() => setShowAuthDialog(false)}
-                onAuthenticate={(password) => {
-                    setShowAuthDialog(false);
-                    // Handle wallet encryption/decryption with password
+        <RouteGuard requireTerms={true} requireWallet={true}>
+            <AppLayout
+                headerProps={{
+                    title: activeSection === 'wallets' ? 'Wallet Manager' :
+                        activeSection === 'addresses' ? 'Derived Addresses' :
+                            activeSection === 'recovery' ? 'Export Recovery Phrase' :
+                                activeSection === 'privatekey' ? 'Export Private Key' :
+                                    activeSection === 'encryption' ? 'Wallet Encryption' :
+                                        activeSection === 'hdconfig' ? 'HD Wallet Config' :
+                                            'Wallet Management',
+                    showBackButton: true,
+                    customBackAction: handleBack,
+                    actions: <HeaderActions />
                 }}
-                title="Wallet Encryption"
-                message="Authentication required to modify wallet encryption"
-            />
-        </AppLayout>
+            >
+                <div className="space-y-4 sm:space-y-6 max-w-screen-2xl px-2 sm:px-0">
+                    {renderContent()}
+                </div>
+
+                {/* Authentication Dialog */}
+                <AuthenticationDialog
+                    isOpen={showAuthDialog}
+                    onClose={() => setShowAuthDialog(false)}
+                    onAuthenticate={(password) => {
+                        setShowAuthDialog(false);
+                        // Handle wallet encryption/decryption with password
+                    }}
+                    title="Wallet Encryption"
+                    message="Authentication required to modify wallet encryption"
+                />
+            </AppLayout>
+        </RouteGuard>
     );
 }
