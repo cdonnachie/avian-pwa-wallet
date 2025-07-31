@@ -3125,10 +3125,24 @@ export class WalletService {
                 decryptedMnemonic = storedMnemonic;
             }
 
+            // Decrypt the stored passphrase if it exists
+            let decryptedPassphrase: string | undefined;
+            if (activeWallet.bip39Passphrase && isEncrypted) {
+                try {
+                    const { decrypted } = await decryptData(activeWallet.bip39Passphrase, password);
+                    decryptedPassphrase = decrypted;
+                } catch (error) {
+                    throw new Error('Invalid password or corrupted passphrase');
+                }
+            } else if (activeWallet.bip39Passphrase && !isEncrypted) {
+                // If wallet is not encrypted but has a passphrase, use it directly
+                decryptedPassphrase = activeWallet.bip39Passphrase;
+            }
+
             // Use the static method to derive addresses
             return WalletService.deriveAddressesWithBalances(
                 decryptedMnemonic,
-                undefined, // No additional passphrase
+                decryptedPassphrase, // Use the decrypted passphrase from wallet
                 accountIndex,
                 addressCount,
                 addressType,
