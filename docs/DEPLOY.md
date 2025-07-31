@@ -132,4 +132,4 @@ Vercel provides:
 
 - **Vercel Docs**: [vercel.com/docs](https://vercel.com/docs)
 - **Next.js PWA**: [github.com/shadowwalker/next-pwa](https://github.com/shadowwalker/next-pwa)
-- **Avian Network**: [aviancoin.org](https://avn.network)
+- **Avian Network**: [avn.network](https://avn.network)

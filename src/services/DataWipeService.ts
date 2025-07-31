@@ -56,6 +56,7 @@ export class DataWipeService {
                 try {
                     const dbName = 'AvianFlightDeck';
 
+
                     if (isIOS) {
                         // iOS Safari sometimes requires multiple attempts and different approaches
                         console.info('Attempting iOS-compatible IndexedDB deletion');
@@ -107,6 +108,7 @@ export class DataWipeService {
                             }
                         }, isIOS ? 3000 : 10000);
                     });
+
 
                 } catch (error) {
                     const errorMsg = `IndexedDB deletion failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
