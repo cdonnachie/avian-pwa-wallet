@@ -360,14 +360,9 @@ export default function DerivedAddressesPanel() {
     // Account Index is always 0 (BIP44 standard)
     const accountIndex = 0;
     const [addressCount, setAddressCount] = useState<number>(5);
-    // Initialize coin type from localStorage or default to 921
-    const [coinType, setCoinType] = useState<number>(() => {
-        if (typeof window !== 'undefined') {
-            const stored = localStorage.getItem('derivedAddresses.coinType');
-            return stored ? parseInt(stored) : 921;
-        }
-        return 921;
-    });
+    // Initialize coin type from wallet's coin type, default to 921
+    const [coinType, setCoinType] = useState<number>(921);
+    const [walletCoinType, setWalletCoinType] = useState<number | null>(null);
 
     // Load address count preference on component mount
     useEffect(() => {
@@ -381,6 +376,33 @@ export default function DerivedAddressesPanel() {
         };
         loadAddressCountPreference();
     }, []);
+
+    // Load wallet's coin type when wallet changes
+    useEffect(() => {
+        const loadWalletCoinType = async () => {
+            if (activeWalletAddress && activeWallet) {
+                try {
+                    const walletData = await activeWallet.getActiveWallet();
+                    if (walletData?.coinType !== undefined) {
+                        setWalletCoinType(walletData.coinType);
+                        // If we haven't set a custom coin type yet, use the wallet's coin type
+                        setCoinType(walletData.coinType);
+                    } else {
+                        // Legacy wallet without coin type stored, default to 921
+                        setWalletCoinType(921);
+                        setCoinType(921);
+                    }
+                } catch (error) {
+                    // Silently fall back to default value
+                    setWalletCoinType(921);
+                    setCoinType(921);
+                }
+            } else {
+                setWalletCoinType(null);
+            }
+        };
+        loadWalletCoinType();
+    }, [activeWalletAddress, activeWallet]);
 
     // Update address count preference when changed
     const handleAddressCountChange = async (newCount: number) => {
@@ -578,13 +600,6 @@ export default function DerivedAddressesPanel() {
         return matchesSearch;
     });
 
-    // Save coin type to localStorage when it changes
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            localStorage.setItem('derivedAddresses.coinType', coinType.toString());
-        }
-    }, [coinType]);
-
     // Reset addresses when coin type changes (since different coin types generate different addresses)
     const previousCoinType = useRef<number>(coinType);
     useEffect(() => {
@@ -614,7 +629,8 @@ export default function DerivedAddressesPanel() {
 
             // Reset to default settings
             setAddressCount(5);
-            // Don't reset coin type - preserve user's selection
+            // Reset coin type to new wallet's coin type when wallet changes
+            // This will be set by the walletCoinType effect
 
             // If we're loading, stop
             if (isLoading) {
@@ -826,6 +842,7 @@ export default function DerivedAddressesPanel() {
                                 <Select
                                     value={coinType.toString()}
                                     onValueChange={(value) => setCoinType(parseInt(value))}
+                                    disabled
                                 >
                                     <SelectTrigger>
                                         <SelectValue />
@@ -837,8 +854,7 @@ export default function DerivedAddressesPanel() {
                                 </Select>
                                 <div className="text-xs text-muted-foreground space-y-1">
                                     <p>
-                                        Use 175 only if this wallet was originally created with Ravencoin's coin type.
-                                        Different coin types generate completely different addresses.
+                                        This value is automatically determined by your wallet. Different coin types generate completely different addresses.
                                     </p>
                                     {coinType === 175 && (
                                         <p className="text-amber-600 dark:text-amber-400 font-medium">
