@@ -19,18 +19,76 @@ const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'Avian FlightDeck',
-  description: 'Avian cryptocurrency wallet',
+  description: 'Secure and user-friendly Avian cryptocurrency wallet for managing your digital assets',
+  keywords: ['avian', 'cryptocurrency', 'wallet', 'blockchain', 'crypto', 'digital assets'],
+  authors: [{ name: 'Avian FlightDeck Team' }],
+  creator: 'Avian FlightDeck Team',
+  publisher: 'Avian FlightDeck',
   manifest: '/manifest.json',
+
+  // Icons
   icons: {
     icon: '/icons/icon-192x192.png',
     apple: '/icons/icon-192x192.png',
+    shortcut: '/favicon.svg',
+  },
+
+  // OpenGraph metadata
+  openGraph: {
+    type: 'website',
+    locale: 'en_US',
+    url: 'https://flightdeck.avn.network',
+    siteName: 'Avian FlightDeck',
+    title: 'Avian FlightDeck - Secure Cryptocurrency Wallet',
+    description: 'Secure and user-friendly Avian cryptocurrency wallet for managing your digital assets',
+    images: [
+      {
+        url: '/screenshots/desktop-home.png',
+        width: 1920,
+        height: 1080,
+        alt: 'Avian FlightDeck Desktop Interface',
+        type: 'image/png',
+      },
+      {
+        url: '/icons/icon-512x512.png',
+        width: 512,
+        height: 512,
+        alt: 'Avian FlightDeck Logo',
+        type: 'image/png',
+      },
+    ],
+  },
+
+  // Twitter metadata
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Avian FlightDeck - Secure Cryptocurrency Wallet',
+    description: 'Secure and user-friendly Avian cryptocurrency wallet for managing your digital assets',
+    creator: '@aavianfoundation',
+    site: '@aavianfoundation',
+    images: ['/screenshots/desktop-home.png'],
+  },
+
+  // Additional metadata for better SEO
+  category: 'finance',
+  classification: 'Cryptocurrency Wallet',
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
   },
 };
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#0ea5e9',
+  themeColor: '#237a7f',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
