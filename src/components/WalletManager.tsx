@@ -16,6 +16,9 @@ import {
   Shield,
   Calendar,
   Clock,
+  Eye,
+  EyeOff,
+  Edit2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import WalletCreationForm, {
@@ -73,6 +76,14 @@ interface WalletCardProps {
   onCopy: (address: string) => void;
   isCopied: boolean;
   canDelete: boolean;
+  // Wallet name editing props
+  editingWalletId: number | null;
+  editingWalletName: string;
+  isUpdatingName: boolean;
+  onEditName: (walletId: number, currentName: string) => void;
+  onSaveName: () => void;
+  onCancelEdit: () => void;
+  onEditingNameChange: (name: string) => void;
 }
 
 function WalletCard({
@@ -83,6 +94,13 @@ function WalletCard({
   onCopy,
   isCopied,
   canDelete,
+  editingWalletId,
+  editingWalletName,
+  isUpdatingName,
+  onEditName,
+  onSaveName,
+  onCancelEdit,
+  onEditingNameChange,
 }: WalletCardProps) {
   const formatDate = (timestamp?: number | Date) => {
     if (!timestamp) return 'Never';
@@ -109,14 +127,63 @@ function WalletCard({
       }
     >
       <Card
-        className={`overflow-hidden ${isActive ? 'border-avian-500 dark:border-avian-400 shadow-md' : ''}`}
+        className={`overflow-hidden group ${isActive ? 'border-avian-500 dark:border-avian-400 shadow-md' : ''}`}
       >
         <CardContent className="p-4">
           <div className="flex justify-between items-start gap-2">
             <div className="space-y-2">
               <div>
                 <div className="flex items-center">
-                  <h3 className="font-semibold text-lg mr-2">{wallet.name}</h3>
+                  {editingWalletId === wallet.id ? (
+                    <div className="flex items-center gap-2 flex-1">
+                      <input
+                        type="text"
+                        value={editingWalletName}
+                        onChange={(e) => onEditingNameChange(e.target.value)}
+                        className="font-semibold text-lg bg-transparent border-b border-gray-300 dark:border-gray-600 focus:border-avian-500 dark:focus:border-avian-400 outline-none flex-1 min-w-0"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            onSaveName();
+                          } else if (e.key === 'Escape') {
+                            onCancelEdit();
+                          }
+                        }}
+                      />
+                      <div className="flex items-center gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={onSaveName}
+                          disabled={isUpdatingName || !editingWalletName.trim()}
+                          className="h-6 w-6 p-0"
+                        >
+                          <Check className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={onCancelEdit}
+                          disabled={isUpdatingName}
+                          className="h-6 w-6 p-0"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <h3 className="font-semibold text-lg mr-2">{wallet.name}</h3>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => onEditName(wallet.id!, wallet.name)}
+                        className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <Edit2 className="h-3 w-3" />
+                      </Button>
+                    </>
+                  )}
                   {isActive && (
                     <Badge
                       variant="default"
@@ -223,16 +290,24 @@ export function WalletManager({ onWalletSelect, onClose }: WalletManagerProps) {
   const [newWalletName, setNewWalletName] = useState('');
   const [newWalletPassword, setNewWalletPassword] = useState('');
   const [newWalletPasswordConfirm, setNewWalletPasswordConfirm] = useState('');
+  const [showNewWalletPassword, setShowNewWalletPassword] = useState(false);
+  const [showNewWalletPasswordConfirm, setShowNewWalletPasswordConfirm] = useState(false);
   const [importWalletName, setImportWalletName] = useState('');
   const [importWalletPassword, setImportWalletPassword] = useState('');
   const [importWalletPasswordConfirm, setImportWalletPasswordConfirm] = useState('');
+  const [showImportWalletPassword, setShowImportWalletPassword] = useState(false);
+  const [showImportWalletPasswordConfirm, setShowImportWalletPasswordConfirm] = useState(false);
   const [importPrivateKey, setImportPrivateKey] = useState('');
   const [importMnemonic, setImportMnemonic] = useState('');
   const [importMnemonicPassphrase, setImportMnemonicPassphrase] = useState('');
+  const [showImportMnemonicPassphrase, setShowImportMnemonicPassphrase] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [passwordError, setPasswordError] = useState('');
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [walletToDelete, setWalletToDelete] = useState<number | null>(null);
+  const [editingWalletId, setEditingWalletId] = useState<number | null>(null);
+  const [editingWalletName, setEditingWalletName] = useState('');
+  const [isUpdatingName, setIsUpdatingName] = useState(false);
 
   // Password validation helper
   const validatePassword = (password: string, confirmPassword: string): string | null => {
@@ -293,16 +368,22 @@ export function WalletManager({ onWalletSelect, onClose }: WalletManagerProps) {
       loadWallets();
     };
 
+    const handleWalletNameUpdated = () => {
+      loadWallets();
+    };
+
     window.addEventListener('wallet-switched', handleWalletSwitched);
     window.addEventListener('wallet-created', handleWalletCreated);
     window.addEventListener('wallet-deleted', handleWalletDeleted);
     window.addEventListener('wallet-imported', handleWalletImported);
+    window.addEventListener('wallet-name-updated', handleWalletNameUpdated);
 
     return () => {
       window.removeEventListener('wallet-switched', handleWalletSwitched);
       window.removeEventListener('wallet-created', handleWalletCreated);
       window.removeEventListener('wallet-deleted', handleWalletDeleted);
       window.removeEventListener('wallet-imported', handleWalletImported);
+      window.removeEventListener('wallet-name-updated', handleWalletNameUpdated);
     };
   }, [loadWallets]);
 
@@ -593,6 +674,60 @@ export function WalletManager({ onWalletSelect, onClose }: WalletManagerProps) {
     }
   };
 
+  const handleEditName = (walletId: number, currentName: string) => {
+    setEditingWalletId(walletId);
+    setEditingWalletName(currentName);
+  };
+
+  const handleSaveName = async () => {
+    if (!editingWalletId || !editingWalletName.trim()) return;
+
+    setIsUpdatingName(true);
+    try {
+      // Update the wallet name using StorageService
+      const success = await StorageService.updateWalletName(editingWalletId, editingWalletName.trim());
+
+      if (success) {
+        // Reload wallets to refresh the UI
+        await loadWallets();
+
+        // If this is the active wallet, reload the wallet context
+        if (editingWalletId === activeWallet?.id) {
+          await reloadActiveWallet();
+        }
+
+        // Dispatch event to notify other components that wallet name was updated
+        window.dispatchEvent(new CustomEvent('wallet-name-updated', {
+          detail: {
+            walletId: editingWalletId,
+            newName: editingWalletName.trim(),
+            isActiveWallet: editingWalletId === activeWallet?.id
+          }
+        }));
+
+        toast.success('Wallet name updated', {
+          description: 'The wallet name has been updated successfully',
+        });
+      } else {
+        throw new Error('Failed to update wallet name');
+      }
+    } catch (error) {
+      console.error('Error updating wallet name:', error);
+      toast.error('Update Failed', {
+        description: error instanceof Error ? error.message : 'Failed to update wallet name',
+      });
+    } finally {
+      setIsUpdatingName(false);
+      setEditingWalletId(null);
+      setEditingWalletName('');
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingWalletId(null);
+    setEditingWalletName('');
+  };
+
   if (isLoading) {
     return (
       <Card className="w-full">
@@ -659,6 +794,13 @@ export function WalletManager({ onWalletSelect, onClose }: WalletManagerProps) {
                     onCopy={(address) => handleCopyAddress(address)}
                     isCopied={copiedAddress === wallet.address}
                     canDelete={wallets.length > 1}
+                    editingWalletId={editingWalletId}
+                    editingWalletName={editingWalletName}
+                    isUpdatingName={isUpdatingName}
+                    onEditName={handleEditName}
+                    onSaveName={handleSaveName}
+                    onCancelEdit={handleCancelEdit}
+                    onEditingNameChange={setEditingWalletName}
                   />
                 ))}
               </div>
@@ -848,20 +990,46 @@ export function WalletManager({ onWalletSelect, onClose }: WalletManagerProps) {
                 </div>
               </div>
 
-              <input
-                type="password"
-                value={newWalletPassword}
-                onChange={(e) => setNewWalletPassword(e.target.value)}
-                placeholder="Enter wallet password (required)"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-              />
-              <input
-                type="password"
-                value={newWalletPasswordConfirm}
-                onChange={(e) => setNewWalletPasswordConfirm(e.target.value)}
-                placeholder="Confirm wallet password"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-              />
+              <div className="relative">
+                <input
+                  type={showNewWalletPassword ? "text" : "password"}
+                  value={newWalletPassword}
+                  onChange={(e) => setNewWalletPassword(e.target.value)}
+                  placeholder="Enter wallet password (required)"
+                  className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  onClick={() => setShowNewWalletPassword(!showNewWalletPassword)}
+                >
+                  {showNewWalletPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+              <div className="relative">
+                <input
+                  type={showNewWalletPasswordConfirm ? "text" : "password"}
+                  value={newWalletPasswordConfirm}
+                  onChange={(e) => setNewWalletPasswordConfirm(e.target.value)}
+                  placeholder="Confirm wallet password"
+                  className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  onClick={() => setShowNewWalletPasswordConfirm(!showNewWalletPasswordConfirm)}
+                >
+                  {showNewWalletPasswordConfirm ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
 
               {passwordError && (
                 <div className="p-3 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-700 rounded-lg">
@@ -942,20 +1110,46 @@ export function WalletManager({ onWalletSelect, onClose }: WalletManagerProps) {
                 </div>
               </div>
 
-              <input
-                type="password"
-                value={importWalletPassword}
-                onChange={(e) => setImportWalletPassword(e.target.value)}
-                placeholder="Create wallet password (required)"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-              />
-              <input
-                type="password"
-                value={importWalletPasswordConfirm}
-                onChange={(e) => setImportWalletPasswordConfirm(e.target.value)}
-                placeholder="Confirm wallet password"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-              />
+              <div className="relative">
+                <input
+                  type={showImportWalletPassword ? "text" : "password"}
+                  value={importWalletPassword}
+                  onChange={(e) => setImportWalletPassword(e.target.value)}
+                  placeholder="Create wallet password (required)"
+                  className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  onClick={() => setShowImportWalletPassword(!showImportWalletPassword)}
+                >
+                  {showImportWalletPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+              <div className="relative">
+                <input
+                  type={showImportWalletPasswordConfirm ? "text" : "password"}
+                  value={importWalletPasswordConfirm}
+                  onChange={(e) => setImportWalletPasswordConfirm(e.target.value)}
+                  placeholder="Confirm wallet password"
+                  className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  onClick={() => setShowImportWalletPasswordConfirm(!showImportWalletPasswordConfirm)}
+                >
+                  {showImportWalletPasswordConfirm ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
 
               {passwordError && (
                 <div className="p-3 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-700 rounded-lg">
@@ -1020,13 +1214,26 @@ export function WalletManager({ onWalletSelect, onClose }: WalletManagerProps) {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   BIP39 Passphrase (Optional)
                 </label>
-                <input
-                  type="password"
-                  value={importMnemonicPassphrase}
-                  onChange={(e) => setImportMnemonicPassphrase(e.target.value)}
-                  placeholder="Enter optional BIP39 passphrase"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                />
+                <div className="relative">
+                  <input
+                    type={showImportMnemonicPassphrase ? "text" : "password"}
+                    value={importMnemonicPassphrase}
+                    onChange={(e) => setImportMnemonicPassphrase(e.target.value)}
+                    placeholder="Enter optional BIP39 passphrase"
+                    className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    onClick={() => setShowImportMnemonicPassphrase(!showImportMnemonicPassphrase)}
+                  >
+                    {showImportMnemonicPassphrase ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   Also known as the &quot;25th word&quot; - only enter if you used one when creating
                   the wallet
@@ -1055,20 +1262,46 @@ export function WalletManager({ onWalletSelect, onClose }: WalletManagerProps) {
                 </div>
               </div>
 
-              <input
-                type="password"
-                value={importWalletPassword}
-                onChange={(e) => setImportWalletPassword(e.target.value)}
-                placeholder="Create wallet password (required)"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-              />
-              <input
-                type="password"
-                value={importWalletPasswordConfirm}
-                onChange={(e) => setImportWalletPasswordConfirm(e.target.value)}
-                placeholder="Confirm wallet password"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-              />
+              <div className="relative">
+                <input
+                  type={showImportWalletPassword ? "text" : "password"}
+                  value={importWalletPassword}
+                  onChange={(e) => setImportWalletPassword(e.target.value)}
+                  placeholder="Create wallet password (required)"
+                  className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  onClick={() => setShowImportWalletPassword(!showImportWalletPassword)}
+                >
+                  {showImportWalletPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+              <div className="relative">
+                <input
+                  type={showImportWalletPasswordConfirm ? "text" : "password"}
+                  value={importWalletPasswordConfirm}
+                  onChange={(e) => setImportWalletPasswordConfirm(e.target.value)}
+                  placeholder="Confirm wallet password"
+                  className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  onClick={() => setShowImportWalletPasswordConfirm(!showImportWalletPasswordConfirm)}
+                >
+                  {showImportWalletPasswordConfirm ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
 
               {passwordError && (
                 <div className="p-3 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-700 rounded-lg">

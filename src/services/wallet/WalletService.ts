@@ -105,6 +105,7 @@ export interface WalletData {
     address: string;
     privateKey: string;
     mnemonic?: string; // BIP39 mnemonic phrase for backup/recovery
+    coinType?: 921 | 175; // BIP44 coin type for derivation (default: 921 for Avian, 175 for Ravencoin legacy)
     isEncrypted: boolean;
     isActive: boolean;
     createdAt: Date;
@@ -906,11 +907,13 @@ export class WalletService {
                 } else if (hdRoot) {
                     // HD address - derive the correct key
                     // We need to find which derivation path this address corresponds to
+                    // Use the wallet's stored coin type for derivation
+                    const coinType = activeWallet.coinType || 921;
                     // Check both receiving (0) and change (1) paths
                     for (const changePath of [0, 1]) {
                         for (let addressIndex = 0; addressIndex < 50; addressIndex++) {
                             // Check up to 50 addresses
-                            const path = `m/44'/921'/0'/${changePath}/${addressIndex}`;
+                            const path = `m/44'/${coinType}'/0'/${changePath}/${addressIndex}`;
                             const child = hdRoot.derivePath(path);
                             const { address: derivedAddress } = bitcoin.payments.p2pkh({
                                 pubkey: Buffer.from(child.publicKey),
@@ -1683,6 +1686,7 @@ export class WalletService {
                 privateKey: finalPrivateKey,
                 mnemonic: finalMnemonic,
                 bip39Passphrase: encryptedPassphrase,
+                coinType: 921, // Always use standard Avian coin type for new wallets
                 isEncrypted: true, // Always encrypted now
                 makeActive: params.makeActive,
             });
@@ -1771,6 +1775,7 @@ export class WalletService {
                 privateKey: finalPrivateKey,
                 mnemonic: finalMnemonic,
                 bip39Passphrase: encryptedPassphrase,
+                coinType: coinType, // Store the coin type used for derivation
                 isEncrypted: true,
                 makeActive: params.makeActive,
             });
@@ -3082,9 +3087,17 @@ export class WalletService {
         addressCount: number = 10,
         addressType: string = 'p2pkh',
         changePath: number = 0, // 0 for receiving addresses, 1 for change addresses
-        coinType: number = 921, // 921 for Avian, 175 for Ravencoin compatibility
     ): Promise<Array<{ path: string; address: string; balance: number; hasTransactions: boolean }>> {
         try {
+            // Get the current wallet to retrieve its coin type
+            const activeWallet = await StorageService.getActiveWallet();
+            if (!activeWallet) {
+                throw new Error('No active wallet found');
+            }
+
+            // Use the wallet's stored coin type, defaulting to 921 for legacy wallets
+            const coinType = activeWallet.coinType || 921;
+
             const storedMnemonic = await StorageService.getMnemonic();
             if (!storedMnemonic) {
                 throw new Error('No mnemonic stored for this wallet. Address derivation is not available.');

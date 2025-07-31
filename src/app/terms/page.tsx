@@ -388,8 +388,8 @@ export default function TermsPage() {
                             {/* Scroll indicator */}
                             {!hasScrolledToBottom && (
                                 <div className="mt-4 flex items-center justify-center">
-                                    <div className="bg-avian-100 dark:bg-avian-900 text-avian-600 dark:text-avian-300 px-4 py-2 rounded-full text-sm font-medium animate-pulse">
-                                        Please scroll down to read the complete terms
+                                    <div className="text-center bg-avian-100 dark:bg-avian-900 text-avian-600 dark:text-avian-300 px-4 py-2 rounded-full text-sm font-medium animate-pulse">
+                                        Scroll down to read complete terms
                                     </div>
                                 </div>
                             )}
@@ -398,7 +398,7 @@ export default function TermsPage() {
                             {!viewMode && (
                                 <div className="mt-6 space-y-6">
                                     <h4 className="text-lg font-medium text-gray-900 dark:text-white">
-                                        Please make your selection:
+                                        Make your selection:
                                     </h4>
 
                                     <RadioGroup

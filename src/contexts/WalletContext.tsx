@@ -938,7 +938,6 @@ export function WalletProvider({ children }: WalletProviderProps) {
         addressCount,
         addressType,
         changePath,
-        coinType,
       );
     },
     sendFromDerivedAddress: async (toAddress, amount, password, derivationPath, options) => {

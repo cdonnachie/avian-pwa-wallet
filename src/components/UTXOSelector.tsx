@@ -55,6 +55,7 @@ interface UTXOSelectorProps {
   targetAmount?: number; // Optional target amount to help user select enough UTXOs
   initialSelection?: EnhancedUTXO[]; // For restoring a previous selection
   feeRate?: number; // To calculate if enough has been selected
+  maxInputs?: number; // Maximum number of UTXOs that can be selected
 }
 
 export function UTXOSelector({
@@ -64,6 +65,7 @@ export function UTXOSelector({
   targetAmount = 0,
   initialSelection = [],
   feeRate = 10000,
+  maxInputs = 500,
 }: UTXOSelectorProps) {
   const { wallet, electrum, address, balance, deriveCurrentWalletAddresses } = useWallet();
   const isMobile = useMediaQuery('(max-width: 768px)');
@@ -74,8 +76,9 @@ export function UTXOSelector({
   const [selectedAmount, setSelectedAmount] = useState(0);
   const [enoughSelected, setEnoughSelected] = useState(false);
   const [sortBy, setSortBy] = useState<'value' | 'age'>('value');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc'); // Default to smallest first for consolidation
   const [filterDust, setFilterDust] = useState(false);
+  const [filterSmall, setFilterSmall] = useState(false);
   const [filterUnconfirmed, setFilterUnconfirmed] = useState(false);
   const [isHdWallet, setIsHdWallet] = useState(false);
   const [loadingHdAddresses, setLoadingHdAddresses] = useState(false);
@@ -124,7 +127,7 @@ export function UTXOSelector({
           confirmations: utxo.height ? Math.max(0, currentBlockHeight - utxo.height + 1) : 0,
           isConfirmed: utxo.height ? currentBlockHeight - utxo.height + 1 >= 1 : false,
           ageInBlocks: utxo.height ? currentBlockHeight - utxo.height + 1 : 0,
-          isDust: utxo.value <= 1000, // 0.00001 AVN threshold
+          isDust: utxo.value <= 10000, // 0.0001 AVN threshold (consistent with UTXOOverview)
           address: utxo.address,
         }));
 
@@ -201,7 +204,7 @@ export function UTXOSelector({
           confirmations: utxo.height ? Math.max(0, currentBlockHeight - utxo.height + 1) : 0,
           isConfirmed: utxo.height ? currentBlockHeight - utxo.height + 1 >= 1 : false,
           ageInBlocks: utxo.height ? currentBlockHeight - utxo.height + 1 : 0,
-          isDust: utxo.value <= 1000,
+          isDust: utxo.value <= 10000,
           address: utxo.address,
         }));
 
@@ -260,9 +263,11 @@ export function UTXOSelector({
     }
   };
 
-  // Select all UTXOs
+  // Select all UTXOs (limited by maxInputs)
   const selectAll = () => {
-    setSelectedUtxos([...utxos]);
+    const filteredUTXOs = getSortedFilteredUTXOs();
+    const limitedSelection = filteredUTXOs.slice(0, maxInputs);
+    setSelectedUtxos(limitedSelection);
   };
 
   // Clear selection
@@ -277,6 +282,10 @@ export function UTXOSelector({
     // Apply filters
     if (filterDust) {
       filtered = filtered.filter((utxo) => !utxo.isDust);
+    }
+
+    if (filterSmall) {
+      filtered = filtered.filter((utxo) => utxo.value > 2500000000); // Hide UTXOs under 25 AVN
     }
 
     if (filterUnconfirmed) {
@@ -321,7 +330,7 @@ export function UTXOSelector({
   const renderContent = () => (
     <>
       {/* Status and Info */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 px-2">
         <Card>
           <CardContent className="p-4 space-y-2">
             <div className="flex items-center justify-between">
@@ -368,7 +377,7 @@ export function UTXOSelector({
       <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="flex gap-2">
           <Button onClick={selectAll} variant="default" size="sm" className="flex-1">
-            Select All
+            Select All (max {maxInputs})
           </Button>
           <Button
             onClick={clearSelection}
@@ -415,6 +424,16 @@ export function UTXOSelector({
           />
           <Label htmlFor="filter-dust" className="text-sm cursor-pointer">
             Hide Dust
+          </Label>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="filter-small"
+            checked={filterSmall}
+            onCheckedChange={() => setFilterSmall(!filterSmall)}
+          />
+          <Label htmlFor="filter-small" className="text-sm cursor-pointer">
+            Hide Small
           </Label>
         </div>
         <div className="flex items-center space-x-2">
@@ -541,9 +560,8 @@ export function UTXOSelector({
               <Card
                 key={`${utxo.txid}-${utxo.vout}`}
                 onClick={() => toggleSelection(utxo)}
-                className={`cursor-pointer transition-colors hover:bg-accent/50 ${
-                  isSelected ? 'border-primary bg-primary/10' : ''
-                }`}
+                className={`cursor-pointer transition-colors hover:bg-accent/50 ${isSelected ? 'border-primary bg-primary/10' : ''
+                  }`}
               >
                 <CardContent className="p-3 flex items-center space-x-3">
                   {/* Selection checkbox */}

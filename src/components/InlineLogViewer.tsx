@@ -38,6 +38,10 @@ import {
     electrumLogger,
     priceLogger,
     watchAddressLogger,
+    termsLogger,
+    walletContextLogger,
+    routeGuardLogger,
+    dataWipeLogger,
 } from '@/lib/Logger';
 import { errorReporting, ErrorReport } from '@/services/ErrorReportingService';
 import { securityService } from '@/services/core/SecurityService';
@@ -89,9 +93,12 @@ interface ExtendedLogEntry extends LogEntry {
     loggerName?: string;
 }
 
+// Define logger types
+type LoggerType = 'wallet' | 'notification' | 'security' | 'storage' | 'electrum' | 'price' | 'watch_address' | 'terms' | 'wallet_context' | 'route_guard' | 'data_wipe';
+type AllLoggerType = LoggerType | 'all' | 'error_boundaries' | 'security_audit';
+
 // Map of logger names to their instances
-const loggerMap: Record<string, Logger | null> = {
-    all: null, // Special case for all loggers combined
+const loggerMap: Record<LoggerType, ReturnType<typeof Logger.getLogger>> = {
     wallet: walletLogger,
     notification: notificationLogger,
     security: securityLogger,
@@ -99,11 +106,10 @@ const loggerMap: Record<string, Logger | null> = {
     electrum: electrumLogger,
     price: priceLogger,
     watch_address: watchAddressLogger,
-    backup_service: Logger.getLogger('backup_service'),
-    qr_backup: Logger.getLogger('qr_backup'),
-    error_reporting: Logger.getLogger('error_reporting'),
-    error_boundaries: null, // Special case for error boundary reports
-    security_audit: null, // Special case for security audit log (read-only)
+    terms: termsLogger,
+    wallet_context: walletContextLogger,
+    route_guard: routeGuardLogger,
+    data_wipe: dataWipeLogger
 };
 
 // Convert error reports to log entry format for consistent display
@@ -150,14 +156,14 @@ const convertSecurityAuditToLogEntries = (auditEntries: any[]): LogEntry[] => {
 
 
 export function InlineLogViewer({ className = "" }: InlineLogViewerProps = {}) {
-    const [selectedLoggerName, setSelectedLoggerName] = useState<string>('all');
+    const [selectedLoggerName, setSelectedLoggerName] = useState<AllLoggerType>('all');
     const [logs, setLogs] = useState<ExtendedLogEntry[]>([]);
     const [sorting, setSorting] = useState<SortingState>([{ id: 'timestamp', desc: true }]);
     const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
     const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
     const [autoRefresh, setAutoRefresh] = useState(false);
     const [isDebugEnabled, setIsDebugEnabled] = useState<boolean>(
-        loggerMap[selectedLoggerName]?.isDebugEnabled() || false,
+        selectedLoggerName in loggerMap ? (loggerMap[selectedLoggerName as LoggerType]?.isDebugEnabled() || false) : false,
     );
     const [clearDialogOpen, setClearDialogOpen] = useState(false);
     const [selectedLog, setSelectedLog] = useState<ExtendedLogEntry | null>(null);
@@ -311,9 +317,9 @@ export function InlineLogViewer({ className = "" }: InlineLogViewerProps = {}) {
                 setLogs([]);
             }
         } else {
-            const logger = loggerMap[selectedLoggerName];
+            const logger = selectedLoggerName in loggerMap ? loggerMap[selectedLoggerName as LoggerType] : null;
             if (logger) {
-                const logEntries = logger.getLogs().sort((a, b) => b.timestamp - a.timestamp);
+                const logEntries = logger.getLogs().sort((a: LogEntry, b: LogEntry) => b.timestamp - a.timestamp);
                 setLogs(logEntries);
             }
         }
@@ -328,9 +334,9 @@ export function InlineLogViewer({ className = "" }: InlineLogViewerProps = {}) {
             selectedLoggerName !== 'all' &&
             selectedLoggerName !== 'error_boundaries' &&
             selectedLoggerName !== 'security_audit' &&
-            loggerMap[selectedLoggerName]
+            selectedLoggerName in loggerMap
         ) {
-            setIsDebugEnabled(loggerMap[selectedLoggerName]?.isDebugEnabled() || false);
+            setIsDebugEnabled(loggerMap[selectedLoggerName as LoggerType]?.isDebugEnabled() || false);
         } else {
             setIsDebugEnabled(false);
         }
@@ -371,7 +377,7 @@ export function InlineLogViewer({ className = "" }: InlineLogViewerProps = {}) {
             return;
         } else {
             // Clear logs from the selected logger
-            const logger = loggerMap[selectedLoggerName];
+            const logger = selectedLoggerName in loggerMap ? loggerMap[selectedLoggerName as LoggerType] : null;
             if (logger) {
                 logger.clearLogs();
             }
@@ -405,12 +411,14 @@ export function InlineLogViewer({ className = "" }: InlineLogViewerProps = {}) {
 
     // Toggle debug mode for the selected logger
     const handleToggleDebugMode = () => {
-        const logger = loggerMap[selectedLoggerName];
-        if (logger && selectedLoggerName !== 'all' && selectedLoggerName !== 'error_boundaries') {
-            const newDebugState = !isDebugEnabled;
-            logger.setDebugEnabled(newDebugState);
-            setIsDebugEnabled(newDebugState);
-            fetchLogs(); // Refresh logs
+        if (selectedLoggerName in loggerMap) {
+            const logger = loggerMap[selectedLoggerName as LoggerType];
+            if (logger && selectedLoggerName !== 'all' && selectedLoggerName !== 'error_boundaries') {
+                const newDebugState = !isDebugEnabled;
+                logger.setDebugEnabled(newDebugState);
+                setIsDebugEnabled(newDebugState);
+                fetchLogs(); // Refresh logs
+            }
         }
     };
 
@@ -738,12 +746,12 @@ export function InlineLogViewer({ className = "" }: InlineLogViewerProps = {}) {
                 {/* Logger Selection and Refresh Controls */}
                 <div className="flex flex-col gap-3">
                     {/* Logger Selection */}
-                    <Select value={selectedLoggerName} onValueChange={setSelectedLoggerName}>
+                    <Select value={selectedLoggerName} onValueChange={(value) => setSelectedLoggerName(value as AllLoggerType)}>
                         <SelectTrigger className="w-full">
                             <SelectValue placeholder="Select logger">
                                 {selectedLoggerName &&
                                     (() => {
-                                        const logger = loggerMap[selectedLoggerName];
+                                        const logger = selectedLoggerName in loggerMap ? loggerMap[selectedLoggerName as LoggerType] : null;
                                         const hasDebugEnabled =
                                             logger &&
                                             selectedLoggerName !== 'all' &&
@@ -774,22 +782,33 @@ export function InlineLogViewer({ className = "" }: InlineLogViewerProps = {}) {
                             </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
+                            {/* Special logger options */}
+                            <SelectItem value="all">
+                                <div className="flex items-center justify-between w-full">
+                                    <span className="truncate">All Logs</span>
+                                </div>
+                            </SelectItem>
+                            <SelectItem value="error_boundaries">
+                                <div className="flex items-center justify-between w-full">
+                                    <span className="truncate">Error Boundaries</span>
+                                </div>
+                            </SelectItem>
+                            <SelectItem value="security_audit">
+                                <div className="flex items-center justify-between w-full">
+                                    <span className="truncate">Security Audit (Read-Only)</span>
+                                </div>
+                            </SelectItem>
+
+                            {/* Logger map options */}
                             {Object.keys(loggerMap).map((name) => {
-                                const logger = loggerMap[name];
+                                const logger = name in loggerMap ? loggerMap[name as LoggerType] : null;
                                 const hasDebugEnabled =
                                     logger &&
                                     name !== 'all' &&
                                     name !== 'error_boundaries' &&
                                     name !== 'security_audit' &&
                                     logger.isDebugEnabled();
-                                const displayName =
-                                    name === 'all'
-                                        ? 'All Logs'
-                                        : name === 'error_boundaries'
-                                            ? 'Error Boundaries'
-                                            : name === 'security_audit'
-                                                ? 'Security Audit (Read-Only)'
-                                                : name.charAt(0).toUpperCase() + name.slice(1).replace('_', ' ');
+                                const displayName = name.charAt(0).toUpperCase() + name.slice(1).replace('_', ' ');
 
                                 return (
                                     <SelectItem key={name} value={name}>

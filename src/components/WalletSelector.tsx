@@ -202,6 +202,43 @@ export function WalletSelector() {
         loadWallets();
     }, [address, balance]);
 
+    // Listen for wallet events to keep the selector in sync
+    useEffect(() => {
+        const handleWalletSwitched = () => {
+            loadWallets();
+        };
+
+        const handleWalletCreated = () => {
+            loadWallets();
+        };
+
+        const handleWalletDeleted = () => {
+            loadWallets();
+        };
+
+        const handleWalletImported = () => {
+            loadWallets();
+        };
+
+        const handleWalletNameUpdated = () => {
+            loadWallets();
+        };
+
+        window.addEventListener('wallet-switched', handleWalletSwitched);
+        window.addEventListener('wallet-created', handleWalletCreated);
+        window.addEventListener('wallet-deleted', handleWalletDeleted);
+        window.addEventListener('wallet-imported', handleWalletImported);
+        window.addEventListener('wallet-name-updated', handleWalletNameUpdated);
+
+        return () => {
+            window.removeEventListener('wallet-switched', handleWalletSwitched);
+            window.removeEventListener('wallet-created', handleWalletCreated);
+            window.removeEventListener('wallet-deleted', handleWalletDeleted);
+            window.removeEventListener('wallet-imported', handleWalletImported);
+            window.removeEventListener('wallet-name-updated', handleWalletNameUpdated);
+        };
+    }, []);
+
     // Handle wallet switching
     const handleSwitchWallet = async (walletId: number) => {
         if (!walletId) return;

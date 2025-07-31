@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { securityService } from '@/services/core/SecurityService';
 import { StorageService } from '@/services/core/StorageService';
 import { WalletService } from '@/services/wallet/WalletService';
-import { Fingerprint, Lock, X } from 'lucide-react';
+import { Fingerprint, Lock, X, Eye, EyeOff } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,7 @@ export default function AuthenticationDialog({
   walletAddress,
 }: AuthenticationDialogProps) {
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +41,7 @@ export default function AuthenticationDialog({
     if (isOpen) {
       // Clear previous state
       setPassword('');
+      setShowPassword(false);
       setError(null);
       setIsAuthenticating(false);
 
@@ -217,16 +219,32 @@ export default function AuthenticationDialog({
               <form onSubmit={handlePasswordSubmit}>
                 <div className="space-y-2 mb-4">
                   <Label htmlFor="password">Wallet Password</Label>
-                  <Input
-                    type="password"
-                    id="password"
-                    ref={inputRef}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your wallet password"
-                    autoFocus
-                    autoComplete="current-password"
-                  />
+                  <div className="relative">
+                    <Input
+                      type={showPassword ? "text" : "password"}
+                      id="password"
+                      ref={inputRef}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Enter your wallet password"
+                      autoFocus
+                      autoComplete="current-password"
+                      className="pr-10"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4 text-gray-500" />
+                      ) : (
+                        <Eye className="h-4 w-4 text-gray-500" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="flex flex-col gap-3 mt-6">
@@ -309,16 +327,32 @@ export default function AuthenticationDialog({
               <form onSubmit={handlePasswordSubmit}>
                 <div className="space-y-2 mb-4">
                   <Label htmlFor="password">Wallet Password</Label>
-                  <Input
-                    type="password"
-                    id="password"
-                    ref={inputRef}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your wallet password"
-                    autoFocus
-                    autoComplete="current-password"
-                  />
+                  <div className="relative">
+                    <Input
+                      type={showPassword ? "text" : "password"}
+                      id="password"
+                      ref={inputRef}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Enter your wallet password"
+                      autoFocus
+                      autoComplete="current-password"
+                      className="pr-10"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4 text-gray-500" />
+                      ) : (
+                        <Eye className="h-4 w-4 text-gray-500" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between mt-6">

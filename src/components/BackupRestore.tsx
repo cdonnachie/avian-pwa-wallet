@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Upload, FileText, AlertCircle } from 'lucide-react';
+import { Upload, FileText, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 export function BackupRestore() {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [restorePassword, setRestorePassword] = useState('');
+    const [showRestorePassword, setShowRestorePassword] = useState(false);
     const [isImporting, setIsImporting] = useState(false);
     const [backupPreview, setBackupPreview] = useState<WalletBackup | null>(null);
     const [restoreOptions, setRestoreOptions] = useState<RestoreOptions>({
@@ -174,14 +175,29 @@ export function BackupRestore() {
                             Backup Password
                         </Label>
                         <div className="flex space-x-2">
-                            <Input
-                                id="restorePassword"
-                                type="password"
-                                placeholder="Enter backup encryption password"
-                                value={restorePassword}
-                                onChange={(e) => setRestorePassword(e.target.value)}
-                                className="flex-1"
-                            />
+                            <div className="relative flex-1">
+                                <Input
+                                    id="restorePassword"
+                                    type={showRestorePassword ? "text" : "password"}
+                                    placeholder="Enter backup encryption password"
+                                    value={restorePassword}
+                                    onChange={(e) => setRestorePassword(e.target.value)}
+                                    className="pr-10"
+                                />
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                                    onClick={() => setShowRestorePassword(!showRestorePassword)}
+                                >
+                                    {showRestorePassword ? (
+                                        <EyeOff className="h-4 w-4 text-gray-500" />
+                                    ) : (
+                                        <Eye className="h-4 w-4 text-gray-500" />
+                                    )}
+                                </Button>
+                            </div>
                             <Button onClick={handlePasswordVerify} disabled={isImporting || !restorePassword}>
                                 {isImporting ? 'Verifying...' : 'Verify'}
                             </Button>

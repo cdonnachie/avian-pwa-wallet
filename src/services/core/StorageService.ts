@@ -11,6 +11,7 @@ interface WalletData {
   privateKey: string;
   mnemonic?: string;
   bip39Passphrase?: string; // Optional encrypted BIP39 passphrase (25th word)
+  coinType?: 921 | 175; // BIP44 coin type for derivation (default: 921 for Avian, 175 for Ravencoin legacy)
   isEncrypted: boolean;
   isActive: boolean;
   createdAt: Date;
@@ -598,6 +599,7 @@ export class StorageService {
     privateKey: string;
     mnemonic?: string;
     bip39Passphrase?: string; // Optional encrypted BIP39 passphrase
+    coinType?: 921 | 175; // BIP44 coin type for derivation
     isEncrypted?: boolean;
     makeActive?: boolean;
   }): Promise<WalletData> {
@@ -622,6 +624,7 @@ export class StorageService {
         privateKey: params.privateKey,
         mnemonic: params.mnemonic,
         ...(params.bip39Passphrase !== undefined && { bip39Passphrase: params.bip39Passphrase }),
+        ...(params.coinType !== undefined && { coinType: params.coinType }),
         isEncrypted: params.isEncrypted || false,
         isActive: params.makeActive !== false,
         createdAt: new Date(),

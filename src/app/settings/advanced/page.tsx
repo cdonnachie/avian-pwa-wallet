@@ -11,6 +11,7 @@ import { DataWipePanel } from '@/components/DataWipePanel';
 import { AppLayout } from '@/components/AppLayout';
 import { HeaderActions } from '@/components/HeaderActions';
 import GradientBackground from '@/components/GradientBackground';
+import RouteGuard from '@/components/RouteGuard';
 
 export default function AdvancedSettingsPage() {
     const router = useRouter();
@@ -128,20 +129,22 @@ export default function AdvancedSettingsPage() {
     };
 
     return (
-        <AppLayout
-            headerProps={{
-                title: activeSection === 'logs' ? 'Debug Logs' :
-                    activeSection === 'messages' ? 'Message Utilities' :
-                        activeSection === 'datawipe' ? 'Reset Application' :
-                            'Advanced Settings',
-                showBackButton: true,
-                customBackAction: handleBack,
-                actions: <HeaderActions />
-            }}
-        >
-            <div className="max-w-screen-2xl">
-                {renderContent()}
-            </div>
-        </AppLayout>
+        <RouteGuard requireTerms={true}>
+            <AppLayout
+                headerProps={{
+                    title: activeSection === 'logs' ? 'Debug Logs' :
+                        activeSection === 'messages' ? 'Message Utilities' :
+                            activeSection === 'datawipe' ? 'Reset Application' :
+                                'Advanced Settings',
+                    showBackButton: true,
+                    customBackAction: handleBack,
+                    actions: <HeaderActions />
+                }}
+            >
+                <div className="max-w-screen-2xl">
+                    {renderContent()}
+                </div>
+            </AppLayout>
+        </RouteGuard>
     );
 }

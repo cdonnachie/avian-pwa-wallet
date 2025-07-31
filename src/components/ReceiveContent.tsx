@@ -413,7 +413,7 @@ export default function ReceiveContent({ address }: ReceiveContentProps) {
         </Alert>
       </CardHeader>
 
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-6 p-3 pt-0 sm:p-6 sm:pt-0">
         {/* QR Code Carousel */}
         {wallets.length > 1 ? (
           <div className="relative">

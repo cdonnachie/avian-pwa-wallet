@@ -150,6 +150,11 @@ export default function AboutPage() {
                         "If you forget your wallet password, you'll need to restore from your recovery phrase. This will give you access to your funds, but you'll lose transaction history and settings stored locally on the device.",
                 },
                 {
+                    question: 'How do I rename my wallets?',
+                    answer:
+                        "You can easily rename any wallet in the wallet manager. Go to Wallet Settings → My Wallets, hover over any wallet name to see the edit icon (pencil), click it to enable inline editing, type the new name and press Enter to save (or Escape to cancel). The new name will appear immediately in both the wallet list and sidebar.",
+                },
+                {
                     question: 'How do I manage and export wallet components?',
                     answer:
                         "You can manage individual wallet components through the wallet settings page. This includes exporting mnemonic phrases, BIP39 passphrases, and private keys with proper authentication. Each export requires your wallet password for security. You can also manage wallet encryption, view derived addresses, and configure advanced settings like change address generation.",
@@ -194,7 +199,7 @@ export default function AboutPage() {
                 {
                     question: 'What are the advanced UTXO and coin control features?',
                     answer:
-                        'FlightDeck offers professional-grade transaction control including manual UTXO selection, multiple coin selection strategies (smallest-first for lower fees, largest-first for privacy, best-fit for efficiency, dust consolidation for cleanup), customizable fee rates, intelligent dust management, and HD wallet change address selection. You can view all UTXOs, select specific ones for transactions, choose which change address to use (for HD wallets), and optimize for different priorities like cost, privacy, or wallet cleanup. Dust consolidation mode automatically uses a single change address to simplify small UTXO management.',
+                        'FlightDeck offers professional-grade transaction control including manual UTXO selection, multiple coin selection strategies (smallest-first for lower fees, largest-first for privacy, best-fit for efficiency, dust consolidation for cleanup), customizable fee rates, intelligent dust management, and HD wallet change address selection. The UTXO overview includes a modern data table with sorting, filtering, pagination, and search capabilities to easily manage large numbers of UTXOs. You can view all UTXOs, select specific ones for transactions, choose which change address to use (for HD wallets), and optimize for different priorities like cost, privacy, or wallet cleanup. The UTXO selector includes smart "Select All" functionality that respects network limits (only selecting up to the maximum allowed inputs), and advanced filtering options including "Hide Dust" (UTXOs under 0.0001 AVN), "Hide Small" (UTXOs under 25 AVN), and "Hide Unconfirmed" for better UTXO management. Dust consolidation mode automatically uses a single change address to simplify small UTXO management.',
                 },
                 {
                     question: 'What are watch addresses?',

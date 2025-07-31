@@ -44,6 +44,8 @@ export default function MnemonicModal({ isOpen, onClose, mode }: MnemonicModalPr
   const [importMnemonic, setImportMnemonic] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showMnemonic, setShowMnemonic] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -58,6 +60,8 @@ export default function MnemonicModal({ isOpen, onClose, mode }: MnemonicModalPr
     setImportMnemonic('');
     setNewPassword('');
     setConfirmPassword('');
+    setShowPassword(false);
+    setShowConfirmPassword(false);
     setShowMnemonic(false);
     setError('');
     setIsValidMnemonic(null);
@@ -444,13 +448,12 @@ export default function MnemonicModal({ isOpen, onClose, mode }: MnemonicModalPr
                 handleValidateMnemonic(e.target.value);
               }}
               placeholder="Enter your 12-word mnemonic phrase..."
-              className={`${
-                isValidMnemonic === false
+              className={`${isValidMnemonic === false
                   ? 'border-red-300 dark:border-red-600'
                   : isValidMnemonic === true
                     ? 'border-green-300 dark:border-green-600'
                     : ''
-              }`}
+                }`}
               rows={3}
             />
             {isValidMnemonic === true && (
@@ -463,24 +466,56 @@ export default function MnemonicModal({ isOpen, onClose, mode }: MnemonicModalPr
 
           <div className="space-y-2">
             <label className="block text-sm font-medium">Password (Required for Security)</label>
-            <Input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="Enter password to encrypt wallet (min 8 characters)"
-              required
-            />
+            <div className="relative">
+              <Input
+                type={showPassword ? "text" : "password"}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Enter password to encrypt wallet (min 8 characters)"
+                required
+                className="pr-10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4 text-gray-500" />
+                ) : (
+                  <Eye className="h-4 w-4 text-gray-500" />
+                )}
+              </Button>
+            </div>
           </div>
 
           <div className="space-y-2">
             <label className="block text-sm font-medium">Confirm Password</label>
-            <Input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Confirm password"
-              required
-            />
+            <div className="relative">
+              <Input
+                type={showConfirmPassword ? "text" : "password"}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Confirm password"
+                required
+                className="pr-10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              >
+                {showConfirmPassword ? (
+                  <EyeOff className="h-4 w-4 text-gray-500" />
+                ) : (
+                  <Eye className="h-4 w-4 text-gray-500" />
+                )}
+              </Button>
+            </div>
           </div>
 
           <div className="flex gap-2">

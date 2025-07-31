@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CoinSelectionStrategy } from '@/services/wallet/UTXOSelectionService';
 import {
   Settings,
@@ -34,6 +34,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Slider } from '@/components/ui/slider';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface UTXOSelectionSettingsProps {
@@ -63,9 +64,17 @@ export function UTXOSelectionSettings({
     currentOptions.strategy || CoinSelectionStrategy.BEST_FIT,
   );
   const [feeRate, setFeeRate] = useState(currentOptions.feeRate || 10000);
-  const [maxInputs, setMaxInputs] = useState(currentOptions.maxInputs || 20);
-  const [minConfirmations, setMinConfirmations] = useState(currentOptions.minConfirmations || 0);
+  const [maxInputs, setMaxInputs] = useState(currentOptions.maxInputs || 100);
+  const [minConfirmations, setMinConfirmations] = useState(currentOptions.minConfirmations || 6);
   const isMobile = useMediaQuery('(max-width: 768px)');
+
+  // Sync state with currentOptions when they change
+  useEffect(() => {
+    setStrategy(currentOptions.strategy || CoinSelectionStrategy.BEST_FIT);
+    setFeeRate(currentOptions.feeRate || 10000);
+    setMaxInputs(currentOptions.maxInputs || 100);
+    setMinConfirmations(currentOptions.minConfirmations || 6);
+  }, [currentOptions]);
 
   if (!isOpen) return null;
 
@@ -122,8 +131,8 @@ export function UTXOSelectionSettings({
   const handleReset = () => {
     setStrategy(CoinSelectionStrategy.BEST_FIT);
     setFeeRate(10000);
-    setMaxInputs(20);
-    setMinConfirmations(0);
+    setMaxInputs(100);
+    setMinConfirmations(6);
   };
 
   const renderContent = () => (
@@ -147,9 +156,8 @@ export function UTXOSelectionSettings({
           {strategies.map((s) => (
             <Card
               key={s.value}
-              className={`cursor-pointer transition-colors ${
-                strategy === s.value ? 'border-primary bg-primary/10' : 'hover:border-border/60'
-              }`}
+              className={`cursor-pointer transition-colors ${strategy === s.value ? 'border-primary bg-primary/10' : 'hover:border-border/60'
+                }`}
               onClick={() => setStrategy(s.value)}
             >
               <CardContent className="p-3 flex items-start gap-3">
@@ -185,51 +193,77 @@ export function UTXOSelectionSettings({
       {/* Advanced Settings */}
       <div>
         <h3 className="text-sm font-medium mb-3">Advanced Settings</h3>
-        <div className="space-y-4">
+        <div className="space-y-6">
           {/* Fee Rate */}
-          <div className="space-y-2">
-            <Label htmlFor="fee-rate">Network Fee (satoshis)</Label>
-            <Input
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <Label htmlFor="fee-rate">Network Fee</Label>
+              <span className="text-sm font-mono bg-secondary px-2 py-1 rounded">
+                {feeRate.toLocaleString()} sats ({(feeRate / 100000000).toFixed(8)} AVN)
+              </span>
+            </div>
+            <Slider
               id="fee-rate"
-              type="number"
-              value={feeRate}
-              onChange={(e) => setFeeRate(parseInt(e.target.value) || 10000)}
-              min="1000"
-              max="100000"
+              value={[feeRate]}
+              onValueChange={(value) => setFeeRate(value[0])}
+              min={1000}
+              max={100000}
+              step={500}
+              className="w-full"
             />
-            <p className="text-xs text-muted-foreground">Default: 10,000 sats (0.0001 AVN)</p>
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>1,000 sats (Low)</span>
+              <span>10,000 sats (Default)</span>
+              <span>100,000 sats (High)</span>
+            </div>
           </div>
 
           {/* Max Inputs */}
-          <div className="space-y-2">
-            <Label htmlFor="max-inputs">Maximum Inputs</Label>
-            <Input
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <Label htmlFor="max-inputs">Maximum Inputs</Label>
+              <span className="text-sm font-mono bg-secondary px-2 py-1 rounded">
+                {maxInputs} UTXOs
+              </span>
+            </div>
+            <Slider
               id="max-inputs"
-              type="number"
-              value={maxInputs}
-              onChange={(e) => setMaxInputs(parseInt(e.target.value) || 20)}
-              min="1"
-              max="100"
+              value={[maxInputs]}
+              onValueChange={(value) => setMaxInputs(value[0])}
+              min={1}
+              max={500}
+              step={5}
+              className="w-full"
             />
-            <p className="text-xs text-muted-foreground">
-              Limit the number of UTXOs used in the transaction
-            </p>
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>1 UTXO</span>
+              <span>100 UTXOs (Default)</span>
+              <span>500 UTXOs (Avian Max)</span>
+            </div>
           </div>
 
           {/* Min Confirmations */}
-          <div className="space-y-2">
-            <Label htmlFor="min-confirmations">Minimum Confirmations</Label>
-            <Input
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <Label htmlFor="min-confirmations">Minimum Confirmations</Label>
+              <span className="text-sm font-mono bg-secondary px-2 py-1 rounded">
+                {minConfirmations === 0 ? 'Any' : `${minConfirmations}+ blocks`}
+              </span>
+            </div>
+            <Slider
               id="min-confirmations"
-              type="number"
-              value={minConfirmations}
-              onChange={(e) => setMinConfirmations(parseInt(e.target.value) || 0)}
-              min="0"
-              max="10"
+              value={[minConfirmations]}
+              onValueChange={(value) => setMinConfirmations(value[0])}
+              min={0}
+              max={10}
+              step={1}
+              className="w-full"
             />
-            <p className="text-xs text-muted-foreground">
-              Only use UTXOs with this many confirmations or more
-            </p>
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>0 (Any)</span>
+              <span>6 (Recommended)</span>
+              <span>10 (Very Safe)</span>
+            </div>
           </div>
         </div>
       </div>

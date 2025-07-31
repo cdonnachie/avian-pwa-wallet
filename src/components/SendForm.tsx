@@ -10,6 +10,7 @@ import {
   Lock,
   UserCheck,
   Check,
+  X,
 } from 'lucide-react';
 import { useWallet } from '@/contexts/WalletContext';
 import { useSecurity } from '@/contexts/SecurityContext';
@@ -18,7 +19,6 @@ import { WalletService } from '@/services/wallet/WalletService';
 import { StorageService } from '@/services/core/StorageService';
 import { securityService } from '@/services/core/SecurityService';
 import { CoinSelectionStrategy, EnhancedUTXO } from '@/services/wallet/UTXOSelectionService';
-import AddressBookButton from './AddressBookButton';
 import AddressInput from './AddressInput';
 import { QRScanResult } from '@/types/addressBook';
 import { UTXOSelectionSettings } from './UTXOSelectionSettings';
@@ -32,13 +32,6 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerFooter,
-} from '@/components/ui/drawer';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
@@ -84,7 +77,7 @@ export default function SendForm() {
   }>({
     strategy: CoinSelectionStrategy.BEST_FIT,
     feeRate: 10000,
-    maxInputs: 20,
+    maxInputs: 100,
     minConfirmations: 6,
   });
   const [isConsolidatingToSelf, setIsConsolidatingToSelf] = useState(false);
@@ -471,7 +464,7 @@ export default function SendForm() {
     setUtxoOptions({
       strategy: CoinSelectionStrategy.BEST_FIT,
       feeRate: 10000,
-      maxInputs: 20,
+      maxInputs: 100,
       minConfirmations: 6,
     });
   };
@@ -519,7 +512,6 @@ export default function SendForm() {
               preferredCount, // number of addresses from preference
               'p2pkh', // address type
               1, // change path (1 for change addresses)
-              921, // Avian coin type
             );
 
             setAvailableChangeAddresses(
@@ -573,6 +565,46 @@ export default function SendForm() {
       }
     } catch (error) {
       toast.error('Failed to add wallet address to address book', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  };
+
+  // Handle UTXO consolidation from UTXOOverview component
+  const handleConsolidateUTXOs = async (selectedUTXOs: EnhancedUTXO[]) => {
+    try {
+      // Get the current wallet's address for consolidation
+      const wallet = await StorageService.getActiveWallet();
+      if (wallet) {
+        // Set up manual UTXO selection with the selected UTXOs
+        setManuallySelectedUTXOs(selectedUTXOs);
+        setUtxoOptions({
+          strategy: CoinSelectionStrategy.MANUAL,
+          feeRate: 1000, // Low fee rate for consolidation
+          maxInputs: Math.min(selectedUTXOs.length, 500), // Use all selected UTXOs up to Avian's limit
+          minConfirmations: 1, // Lower confirmation requirement for consolidation
+        });
+
+        // Set destination to own wallet
+        setToAddress(wallet.address);
+        setIsConsolidatingToSelf(true);
+        setCustomChangeAddress('');
+
+        // Calculate suggested amount (total value minus fee buffer)
+        const totalValue = selectedUTXOs.reduce((sum, utxo) => sum + utxo.value, 0);
+        const suggestedAmount = Math.max(0, (totalValue - 10000) / 100000000); // Leave buffer for fee
+        setAmount(suggestedAmount.toFixed(8));
+
+        // Don't auto-open UTXO selector since user already made selection from UTXOOverview
+        // setShowUTXOSelector(true); // Removed to prevent reopening
+
+        toast.success('Consolidation Setup Complete', {
+          description: `Selected ${selectedUTXOs.length} UTXOs for consolidation (${(totalValue / 100000000).toFixed(8)} AVN total)`,
+          duration: 5000,
+        });
+      }
+    } catch (error) {
+      toast.error('Failed to set up UTXO consolidation', {
         description: error instanceof Error ? error.message : 'Unknown error',
       });
     }
@@ -901,7 +933,7 @@ export default function SendForm() {
             variant={
               utxoOptions.strategy !== CoinSelectionStrategy.BEST_FIT ||
                 utxoOptions.feeRate !== 10000 ||
-                utxoOptions.maxInputs !== 20 ||
+                utxoOptions.maxInputs !== 100 ||
                 utxoOptions.minConfirmations !== 6
                 ? 'secondary'
                 : 'outline'
@@ -914,7 +946,7 @@ export default function SendForm() {
             <span>Advanced</span>
             {(utxoOptions.strategy !== CoinSelectionStrategy.BEST_FIT ||
               utxoOptions.feeRate !== 10000 ||
-              utxoOptions.maxInputs !== 20 ||
+              utxoOptions.maxInputs !== 100 ||
               utxoOptions.minConfirmations !== 6) && (
                 <span className="absolute -top-1 -right-1 h-2 w-2 bg-amber-500 rounded-full"></span>
               )}
@@ -926,7 +958,7 @@ export default function SendForm() {
         {/* UTXO Selection Status */}
         {(utxoOptions.strategy !== CoinSelectionStrategy.BEST_FIT ||
           utxoOptions.feeRate !== 10000 ||
-          utxoOptions.maxInputs !== 20 ||
+          utxoOptions.maxInputs !== 100 ||
           utxoOptions.minConfirmations !== 6) && (
             <div className="mb-4 p-3 bg-secondary/30 border rounded-lg">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -964,7 +996,7 @@ export default function SendForm() {
                     Fee Rate: {utxoOptions.feeRate} sat/vB
                   </Badge>
                 )}
-                {utxoOptions.maxInputs !== 20 && (
+                {utxoOptions.maxInputs !== 100 && (
                   <Badge variant="outline" className="mr-2 mb-1">
                     Max Inputs: {utxoOptions.maxInputs}
                   </Badge>
@@ -1323,7 +1355,12 @@ export default function SendForm() {
         />
 
         {/* UTXO Overview Modal */}
-        <UTXOOverview isOpen={showUTXOOverview} onClose={() => setShowUTXOOverview(false)} />
+        <UTXOOverview
+          isOpen={showUTXOOverview}
+          onClose={() => setShowUTXOOverview(false)}
+          onConsolidateUTXOs={handleConsolidateUTXOs}
+          maxInputs={utxoOptions.maxInputs || 100}
+        />
 
         {/* Dust Consolidation Notice */}
         {isConsolidatingToSelf && (
@@ -1371,26 +1408,70 @@ export default function SendForm() {
           targetAmount={parseFloat(amount || '0') * 100000000}
           initialSelection={manuallySelectedUTXOs}
           feeRate={utxoOptions.feeRate || 10000}
+          maxInputs={utxoOptions.maxInputs || 100}
         />
 
         {/* Manual UTXO Selection Notice */}
         {utxoOptions.strategy === CoinSelectionStrategy.MANUAL && (
           <div className="mt-3 p-3 bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-800 rounded-lg">
-            <div className="font-medium mb-2">Manual UTXO Selection Active</div>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <div className="flex-1 text-sm">
-                {manuallySelectedUTXOs.length > 0
-                  ? `${manuallySelectedUTXOs.length} UTXOs selected (${(manuallySelectedUTXOs.reduce((sum, utxo) => sum + utxo.value, 0) / 100000000).toFixed(8)} AVN)`
-                  : 'No UTXOs selected'}
+            <div className="font-medium mb-2 flex items-center">
+              <UserCheck className="w-4 h-4 mr-2" />
+              Manual UTXO Selection Active
+            </div>
+            <div className="space-y-3">
+              <div className="text-sm">
+                {manuallySelectedUTXOs.length > 0 ? (
+                  <div className="space-y-1">
+                    <p>
+                      <span className="font-medium">{manuallySelectedUTXOs.length} UTXOs selected</span>
+                      {' '}totaling{' '}
+                      <span className="font-mono font-medium">
+                        {(manuallySelectedUTXOs.reduce((sum, utxo) => sum + utxo.value, 0) / 100000000).toFixed(8)} AVN
+                      </span>
+                    </p>
+                    {isConsolidatingToSelf && (
+                      <p className="text-amber-700 dark:text-amber-300">
+                        💰 Consolidation mode: All selected UTXOs will be combined into your wallet
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-amber-700 dark:text-amber-300">No UTXOs selected</p>
+                )}
               </div>
-              <Button
-                size="sm"
-                onClick={() => setShowUTXOSelector(true)}
-                className="h-8 flex items-center"
-              >
-                <UserCheck className="w-3 h-3 mr-1" />
-                {manuallySelectedUTXOs.length > 0 ? 'Modify Selection' : 'Select UTXOs'}
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => setShowUTXOSelector(true)}
+                  className="h-8 flex items-center"
+                >
+                  <UserCheck className="w-3 h-3 mr-1" />
+                  {manuallySelectedUTXOs.length > 0 ? 'View & Modify Selection' : 'Select UTXOs'}
+                </Button>
+                {manuallySelectedUTXOs.length > 0 && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setManuallySelectedUTXOs([]);
+                      setUtxoOptions({
+                        strategy: CoinSelectionStrategy.BEST_FIT,
+                        feeRate: 10000,
+                        maxInputs: 100,
+                        minConfirmations: 6,
+                      });
+                      if (isConsolidatingToSelf) {
+                        setToAddress('');
+                        setIsConsolidatingToSelf(false);
+                      }
+                    }}
+                    className="h-8 flex items-center"
+                  >
+                    <X className="w-3 h-3 mr-1" />
+                    Clear Selection
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         )}

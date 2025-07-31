@@ -177,3 +177,5 @@ export const priceLogger = Logger.getLogger('price');
 export const watchAddressLogger = Logger.getLogger('watch_address');
 export const termsLogger = Logger.getLogger('terms');
 export const walletContextLogger = Logger.getLogger('wallet_context');
+export const routeGuardLogger = Logger.getLogger('route_guard');
+export const dataWipeLogger = Logger.getLogger('data_wipe');
