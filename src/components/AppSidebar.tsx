@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import {
     Wallet,
     Settings,
@@ -111,10 +111,25 @@ interface AppSidebarProps {
 export function AppSidebar({ children, ...props }: AppSidebarProps & React.ComponentProps<typeof Sidebar>) {
     const router = useRouter();
     const pathname = usePathname();
+    const searchParams = useSearchParams();
     const { state } = useSidebar();
 
     const handleNavigation = (url: string) => {
-        router.push(url);
+        // Check if we're navigating to the same base path but need to clear sub-sections
+        const currentBasePath = pathname.split('?')[0];
+        const targetBasePath = url.split('?')[0];
+        
+        // If we're on the same page but have section parameter (indicating sub-section), 
+        // navigate to the base URL without params first
+        if (currentBasePath === targetBasePath && searchParams.get('section')) {
+            router.push(targetBasePath);
+        } else if (currentBasePath === targetBasePath) {
+            // If we're already on the target page and no sub-section, don't navigate
+            return;
+        } else {
+            // Normal navigation to different page
+            router.push(url);
+        }
     };
 
     const isActive = (url: string) => {

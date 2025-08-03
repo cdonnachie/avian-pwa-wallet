@@ -28,6 +28,7 @@ import GradientBackground from '@/components/GradientBackground';
 import WelcomeDialog from '@/components/WelcomeDialog';
 import AboutModal from '@/components/AboutModal';
 import { AppLayout } from '@/components/AppLayout';
+import RouteGuard from '@/components/RouteGuard';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -43,52 +44,20 @@ export default function Home() {
     const [showWelcomeDialog, setShowWelcomeDialog] = useState(false);
     const [showAboutModal, setShowAboutModal] = useState(false);
     const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
-    const [termsAccepted, setTermsAccepted] = useState<boolean | null>(null);
 
     const fullRefreshRequestedRef = useRef(false);
 
-    // Check for terms acceptance on initial load
+    // Check for welcome dialog - only show if no wallet address is loaded
     useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const termsAcceptedValue = localStorage.getItem('terms-accepted');
-            if (!termsAcceptedValue) {
-                router.push('/terms');
-                return;
+        // Small delay to ensure wallet context has fully loaded
+        const timer = setTimeout(() => {
+            if (!address && !isLoading) {
+                setShowWelcomeDialog(true);
             }
-            setTermsAccepted(true);
-        }
-    }, [router]);
+        }, 500);
 
-    // Check if wallet exists on initial load - only after terms are accepted
-    useEffect(() => {
-        const checkWalletExists = async () => {
-            if (termsAccepted && typeof window !== 'undefined') {
-                // Add a small delay to ensure wallet context has time to initialize
-                await new Promise(resolve => setTimeout(resolve, 100));
-
-                // First check localStorage for wallet data
-                const walletData = localStorage.getItem('wallets') || localStorage.getItem('activeWallet');
-
-                // Also check using StorageService for more accurate detection
-                try {
-                    const { StorageService } = await import('@/services/core/StorageService');
-                    const hasWallet = await StorageService.hasWallet();
-
-                    // Only show welcome dialog if no wallet exists and no address is loaded
-                    if (!hasWallet && !walletData && !address) {
-                        setShowWelcomeDialog(true);
-                    }
-                } catch (error) {
-                    // Fallback to localStorage check if StorageService fails
-                    if (!walletData && !address && !isLoading) {
-                        setShowWelcomeDialog(true);
-                    }
-                }
-            }
-        };
-
-        checkWalletExists();
-    }, [termsAccepted, address, isLoading]);
+        return () => clearTimeout(timer);
+    }, [address, isLoading]);
 
     const formatBalance = (balance: number) => {
         const avnBalance = (balance / 100000000).toFixed(8); // Convert satoshis to AVN
@@ -170,20 +139,10 @@ export default function Home() {
         }
     };
 
-    // Don't render the main app until terms acceptance has been checked
-    if (termsAccepted === null) {
-        return (
-            <div className="min-h-screen bg-background flex items-center justify-center">
-                <div className="flex items-center space-x-2">
-                    <Loader className="h-6 w-6 animate-spin text-avian-600" />
-                    <span className="text-gray-600 dark:text-gray-400">Loading...</span>
-                </div>
-            </div>
-        );
-    }
-
+    // Don't render anything here - let RouteGuard handle the loading state
     return (
-        <AppLayout
+        <RouteGuard requireTerms={true} requireWallet={true}>
+            <AppLayout
             headerProps={{
                 title: 'Avian FlightDeck',
                 subtitle: 'Your cryptocurrency wallet',
@@ -497,5 +456,6 @@ export default function Home() {
             {/* About Modal */}
             <AboutModal isOpen={showAboutModal} onClose={() => setShowAboutModal(false)} />
         </AppLayout>
+        </RouteGuard>
     );
 }

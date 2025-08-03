@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Bug, Code, Eye, Trash2 } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,14 +15,31 @@ import RouteGuard from '@/components/RouteGuard';
 
 export default function AdvancedSettingsPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [activeSection, setActiveSection] = useState<'logs' | 'messages' | 'watched' | 'datawipe' | null>(null);
+
+    // Check for section parameter in URL
+    useEffect(() => {
+        const section = searchParams.get('section');
+        if (section === 'logs' || section === 'messages' || section === 'datawipe') {
+            setActiveSection(section as 'logs' | 'messages' | 'datawipe');
+        } else {
+            // Reset to null when no section parameter is present
+            setActiveSection(null);
+        }
+    }, [searchParams]);
 
     const handleBack = () => {
         if (activeSection) {
-            setActiveSection(null);
+            // Clear the section parameter to go back to main advanced settings
+            router.push('/settings/advanced');
         } else {
             router.back();
         }
+    };
+
+    const navigateToSection = (section: string) => {
+        router.push(`/settings/advanced?section=${section}`);
     };
 
     const sections = [
@@ -31,14 +48,14 @@ export default function AdvancedSettingsPage() {
             title: 'Debug Logs',
             description: 'View application logs and debugging information',
             icon: Bug,
-            action: () => setActiveSection('logs'),
+            action: () => navigateToSection('logs'),
         },
         {
             id: 'messages' as const,
             title: 'Message Utilities',
             description: 'Sign and verify messages with your wallet',
             icon: Code,
-            action: () => setActiveSection('messages'),
+            action: () => navigateToSection('messages'),
         },
         {
             id: 'watched' as const,
@@ -52,7 +69,7 @@ export default function AdvancedSettingsPage() {
             title: 'Reset Application',
             description: 'Wipe all data and start fresh (useful for mobile)',
             icon: Trash2,
-            action: () => setActiveSection('datawipe'),
+            action: () => navigateToSection('datawipe'),
         },
     ];
 
@@ -129,7 +146,7 @@ export default function AdvancedSettingsPage() {
     };
 
     return (
-        <RouteGuard requireTerms={true}>
+        <RouteGuard requireTerms={true} requireWallet={true}>
             <AppLayout
                 headerProps={{
                     title: activeSection === 'logs' ? 'Debug Logs' :

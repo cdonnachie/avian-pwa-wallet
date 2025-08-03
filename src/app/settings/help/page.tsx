@@ -6,6 +6,7 @@ import { Info, FileText, ExternalLink } from 'lucide-react';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { AppLayout } from '@/components/AppLayout';
 import { HeaderActions } from '@/components/HeaderActions';
+import RouteGuard from '@/components/RouteGuard';
 
 export default function HelpSettingsPage() {
     const router = useRouter();
@@ -35,13 +36,14 @@ export default function HelpSettingsPage() {
     ];
 
     return (
-        <AppLayout
-            headerProps={{
-                title: 'Help & Support',
-                showBackButton: true,
-                actions: <HeaderActions />
-            }}
-        >
+        <RouteGuard requireTerms={true}>
+            <AppLayout
+                headerProps={{
+                    title: 'Help & Support',
+                    showBackButton: true,
+                    actions: <HeaderActions />
+                }}
+            >
             <div className="space-y-6 max-w-screen-2xl">
                 <div>
                     <h2 className="text-lg font-semibold mb-2">Get Help</h2>
@@ -78,5 +80,6 @@ export default function HelpSettingsPage() {
                 </div>
             </div>
         </AppLayout>
+        </RouteGuard>
     );
 }

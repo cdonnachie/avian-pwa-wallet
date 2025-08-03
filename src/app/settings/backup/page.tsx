@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Download, QrCode, Upload } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AppLayout } from '@/components/AppLayout';
@@ -14,7 +14,27 @@ type ViewType = 'overview' | 'export' | 'restore';
 
 export default function BackupSettingsPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [currentView, setCurrentView] = useState<ViewType>('overview');
+
+    // Check for section parameter in URL
+    useEffect(() => {
+        const section = searchParams.get('section');
+        if (section === 'export' || section === 'restore') {
+            setCurrentView(section as ViewType);
+        } else {
+            // Reset to overview when no section parameter is present
+            setCurrentView('overview');
+        }
+    }, [searchParams]);
+
+    const navigateToView = (view: ViewType) => {
+        if (view === 'overview') {
+            router.push('/settings/backup');
+        } else {
+            router.push(`/settings/backup?section=${view}`);
+        }
+    };
 
     const backupOptions = [
         {
@@ -22,14 +42,14 @@ export default function BackupSettingsPage() {
             title: 'Export Backup',
             description: 'Create and download wallet backup files',
             icon: Download,
-            action: () => setCurrentView('export'),
+            action: () => navigateToView('export'),
         },
         {
             id: 'restore',
             title: 'Import Backup',
             description: 'Restore wallet data from backup files',
             icon: Upload,
-            action: () => setCurrentView('restore'),
+            action: () => navigateToView('restore'),
         },
         {
             id: 'qr',
@@ -92,7 +112,8 @@ export default function BackupSettingsPage() {
 
     const handleBack = () => {
         if (currentView !== 'overview') {
-            setCurrentView('overview');
+            // Clear the section parameter to go back to main backup settings
+            router.push('/settings/backup');
         } else {
             router.back();
         }

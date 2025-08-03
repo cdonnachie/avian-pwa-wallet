@@ -51,6 +51,9 @@ export default function WalletSettingsPage() {
         if (section === 'wallets' || section === 'addresses' || section === 'recovery' ||
             section === 'privatekey' || section === 'encryption' || section === 'hdconfig') {
             setActiveSection(section as 'wallets' | 'addresses' | 'recovery' | 'privatekey' | 'encryption' | 'hdconfig');
+        } else {
+            // Reset to null when no section parameter is present
+            setActiveSection(null);
         }
     }, [searchParams]);
 
@@ -90,10 +93,15 @@ export default function WalletSettingsPage() {
 
     const handleBack = () => {
         if (activeSection) {
-            setActiveSection(null);
+            // Clear the section parameter to go back to main wallet settings
+            router.push('/settings/wallet');
         } else {
             router.back();
         }
+    };
+
+    const navigateToSection = (section: string) => {
+        router.push(`/settings/wallet?section=${section}`);
     };
 
     const handleExportPrivateKey = async () => {
@@ -306,42 +314,42 @@ export default function WalletSettingsPage() {
             title: 'Wallet Manager',
             description: 'Create, import, and manage your wallets',
             icon: Wallet,
-            action: () => setActiveSection('wallets'),
+            action: () => navigateToSection('wallets'),
         },
         {
             id: 'addresses' as const,
             title: 'Derived Addresses',
             description: 'View and manage derived addresses',
             icon: Eye,
-            action: () => setActiveSection('addresses'),
+            action: () => navigateToSection('addresses'),
         },
         {
             id: 'recovery' as const,
             title: 'Export Recovery Phrase',
             description: 'Export your wallet\'s recovery phrase (mnemonic)',
             icon: FileText,
-            action: () => setActiveSection('recovery'),
+            action: () => navigateToSection('recovery'),
         },
         {
             id: 'privatekey' as const,
             title: 'Export Private Key',
             description: 'Export your wallet\'s private key',
             icon: Key,
-            action: () => setActiveSection('privatekey'),
+            action: () => navigateToSection('privatekey'),
         },
         {
             id: 'encryption' as const,
             title: 'Wallet Encryption',
             description: 'Encrypt or decrypt your wallet',
             icon: Lock,
-            action: () => setActiveSection('encryption'),
+            action: () => navigateToSection('encryption'),
         },
         {
             id: 'hdconfig' as const,
             title: 'HD Wallet Configuration',
             description: 'Change address count for HD wallets',
             icon: Hash,
-            action: () => setActiveSection('hdconfig'),
+            action: () => navigateToSection('hdconfig'),
         },
     ];
 

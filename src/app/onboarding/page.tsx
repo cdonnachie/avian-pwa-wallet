@@ -189,7 +189,7 @@ export default function OnboardingPage() {
                         <Wallet className="w-10 h-10 text-primary" />
                     </div>
                 </div>
-                <CardTitle className="text-2xl">Welcome to Avian Wallet</CardTitle>
+                <CardTitle className="text-2xl">Welcome to Avian FlightDeck</CardTitle>
                 <p className="text-muted-foreground">
                     Your secure, privacy-focused wallet for Avian Network
                 </p>
@@ -422,7 +422,7 @@ export default function OnboardingPage() {
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <Wallet className="h-6 w-6 text-primary" />
-                            <span className="text-xl font-bold">Avian Wallet</span>
+                            <span className="text-xl font-bold">FlightDeck Onboarding</span>
                         </div>
                         {step !== 'welcome' && (
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
